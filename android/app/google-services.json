@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "256538135498",
+    "project_id": "ter-market-504b7",
+    "storage_bucket": "ter-market-504b7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:256538135498:android:a63a396af1ce3a0f831d33",
+        "android_client_info": {
+          "package_name": "com.gurbanov.termarket"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLCLu03HAVyg7Q4Q03-MNG-EjiDsx_ZP0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,7 +1,11 @@
 import 'dart:ui';
 
+import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:atlas/core/api/api_service.dart';
+import 'package:atlas/models/product_model.dart';
+import 'package:atlas/widgets/app_dialogs.dart';
 
 class CartController extends GetxController {
   // Cart items logic with quantity
@@ -9,14 +13,12 @@ class CartController extends GetxController {
 
   void addItem(Map<String, dynamic> item, {int initialQuantity = 1}) {
     // Check if item already exists in cart (using title as simple ID for mock)
-    int existingIndex =
-        cartItems.indexWhere((element) => element['title'] == item['title']);
+    int existingIndex = cartItems.indexWhere((element) => element['title'] == item['title']);
 
     if (existingIndex != -1) {
       // Add to existing quantity
       var existingItem = Map<String, dynamic>.from(cartItems[existingIndex]);
-      existingItem['quantity'] =
-          (existingItem['quantity'] ?? 1) + initialQuantity;
+      existingItem['quantity'] = (existingItem['quantity'] ?? 1) + initialQuantity;
       cartItems[existingIndex] = existingItem;
     } else {
       // Add new item with specified quantity
@@ -43,6 +45,7 @@ class CartController extends GetxController {
   void removeItem(int index) {
     if (index >= 0 && index < cartItems.length) {
       cartItems.removeAt(index);
+      AppDialogs.showRemovedFromCart();
     }
   }
 
@@ -51,41 +54,111 @@ class CartController extends GetxController {
   }
 
   double get totalPrice => cartItems.fold(0.0, (sum, item) {
-        double price = (item['price'] is int)
-            ? (item['price'] as int).toDouble()
-            : (item['price'] as double);
+        double price = (item['price'] is int) ? (item['price'] as int).toDouble() : (item['price'] as double);
         int quantity = item['quantity'] ?? 1;
         return sum + (price * quantity);
       });
 }
 
 class FavoritesController extends GetxController {
-  // Mock favorites logic
+  final _api = ApiService();
+
   var favoriteItems = <Map<String, dynamic>>[].obs;
+  var isLoading = false.obs;
+
+  String get _deviceId {
+    final storage = Get.find<GetStorage>();
+    var id = storage.read<String>('device_id');
+    if (id == null) {
+      id = 'atlas-${DateTime.now().millisecondsSinceEpoch}';
+      storage.write('device_id', id);
+    }
+    return id;
+  }
+
+  @override
+  void onInit() {
+    super.onInit();
+    fetchFavourites();
+  }
+
+  Future<void> fetchFavourites() async {
+    isLoading.value = true;
+    try {
+      final products = await _api.getFavourites(_deviceId);
+      favoriteItems.value = products.map(_toMap).toList();
+    } catch (e) {
+      print('[Favourites] Load failed: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
 
   bool isFavorited(dynamic id, dynamic title) {
-    if (id != null) {
-      return favoriteItems.any((item) => item['id'] == id);
+    final parsed = _toIntId(id);
+    if (parsed != null) {
+      return favoriteItems.any((item) => _toIntId(item['id']) == parsed);
     }
     return favoriteItems.any((item) => item['title'] == title);
   }
 
-  void toggleFavorite(Map<String, dynamic> item) {
-    int existingIndex = -1;
-    if (item['id'] != null) {
-      existingIndex =
-          favoriteItems.indexWhere((element) => element['id'] == item['id']);
-    } else {
-      existingIndex = favoriteItems
-          .indexWhere((element) => element['title'] == item['title']);
-    }
+  Future<void> toggleFavorite(Map<String, dynamic> item) async {
+    final rawId = item['id'];
+    final productId = _toIntId(rawId);
+    final existing = productId != null ? favoriteItems.indexWhere((e) => _toIntId(e['id']) == productId) : favoriteItems.indexWhere((e) => e['title'] == item['title']);
 
-    if (existingIndex != -1) {
-      favoriteItems.removeAt(existingIndex);
+    if (existing != -1) {
+      // Optimistic remove
+      final removed = favoriteItems[existing];
+      favoriteItems.removeAt(existing);
+      AppDialogs.showRemovedFromFavorites();
+      if (productId != null) {
+        try {
+          await _api.removeFavourite(_deviceId, productId);
+        } catch (e) {
+          // Roll back on failure
+          favoriteItems.insert(existing, removed);
+          if (e is DioException) {
+            print('[Favourites] Remove failed: ${e.response?.statusCode} ${e.response?.data}');
+          } else {
+            print('[Favourites] Remove failed: $e');
+          }
+        }
+      }
     } else {
+      // Optimistic add
       favoriteItems.add(item);
+      if (productId != null) {
+        try {
+          await _api.addFavourite(_deviceId, productId);
+        } catch (e) {
+          // Roll back on failure
+          favoriteItems.removeWhere((e) => _toIntId(e['id']) == productId);
+          if (e is DioException) {
+            print('[Favourites] Add failed: ${e.response?.statusCode} ${e.response?.data}');
+          } else {
+            print('[Favourites] Add failed: $e');
+          }
+        }
+      }
     }
   }
+
+  int? _toIntId(dynamic id) {
+    if (id is int) return id;
+    if (id is String) return int.tryParse(id);
+    return null;
+  }
+
+  Map<String, dynamic> _toMap(ProductModel p) => {
+        'id': p.id,
+        'title': p.name,
+        'name_tk': p.nameTk,
+        'name_ru': p.nameRu,
+        'imageUrl': p.image ?? '',
+        'price': p.price,
+        'rating': p.rating,
+      };
 }
 
 class ProfileController extends GetxController {

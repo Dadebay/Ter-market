@@ -1,80 +1,77 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:atlas/modules/search/controllers/product_search_controller.dart';
 import 'package:atlas/modules/product_detail/bindings/product_detail_binding.dart';
 import 'package:atlas/modules/product_detail/views/product_detail_screen.dart';
+import 'package:atlas/models/product_model.dart';
+import 'package:iconly/iconly.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  final String? initialQuery;
+
+  const SearchScreen({super.key, this.initialQuery});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  String _query = '';
+  final TextEditingController _textController = TextEditingController();
+  late final ProductSearchController _controller;
 
-  static const List<Map<String, dynamic>> _products = [
-    {
-      'title': 'A4,A3 Kagyz (500 saypa)',
-      'image': 'assets/images/kagyz.jpg',
-      'price': 45.0,
-      'category': 'Kagyzlar',
-    },
-    {
-      'title': 'Gara Galamlar (12-li set)',
-      'image': 'assets/images/renk.jpg',
-      'price': 25.0,
-      'category': 'Galamlar',
-    },
-    {
-      'title': 'Yapyşdyryjy kleý 50ml',
-      'image': 'assets/images/galamlar.jpg',
-      'price': 12.0,
-      'category': 'Kleý',
-    },
-    {
-      'title': 'Depder Kagyz',
-      'image': 'assets/images/renk.jpg',
-      'price': 35.0,
-      'category': 'Defterly',
-    },
-  ];
-
-  static const List<String> _recentSearches = [
-    'A4,A3 Kagyz',
-    'Gara Galamlar',
-    'Yapyşdyryjy kleý',
-    'Depder Kagyz',
-  ];
-
-  List<Map<String, dynamic>> get _filteredProducts {
-    if (_query.trim().isEmpty) {
-      return _products;
+  @override
+  void initState() {
+    super.initState();
+    _controller = Get.put(ProductSearchController());
+    if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
+      _textController.text = widget.initialQuery!;
+      _controller.search(widget.initialQuery!);
     }
-    final q = _query.toLowerCase();
-    return _products
-        .where(
-          (item) =>
-              (item['title'] as String).toLowerCase().contains(q) ||
-              (item['category'] as String).toLowerCase().contains(q),
-        )
-        .toList();
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _textController.dispose();
     super.dispose();
+  }
+
+  void _onChanged(String value) {
+    _controller.search(value);
+  }
+
+  void _clearSearch() {
+    _textController.clear();
+    _controller.clear();
   }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredProducts;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9F8),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        toolbarHeight: 60,
+        titleSpacing: 12,
+        leading: IconButton(
+          onPressed: Get.back,
+          icon: const HugeIcon(
+            icon: HugeIcons.strokeRoundedArrowLeft01,
+            color: Color(0xff22B241),
+            size: 24,
+          ),
+        ),
+        title: Text(
+          'search'.tr,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            fontFamily: 'Gilroy',
+          ),
+        ),
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -82,27 +79,6 @@ class _SearchScreenState extends State<SearchScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: Get.back,
-                        icon: const HugeIcon(
-                          icon: HugeIcons.strokeRoundedArrowLeft01,
-                          color: Color(0xff22B241),
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        'search'.tr,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'Gilroy',
-                        ),
-                      ),
-                    ],
-                  ),
                   Container(
                     height: 48,
                     decoration: BoxDecoration(
@@ -111,35 +87,35 @@ class _SearchScreenState extends State<SearchScreen> {
                       border: Border.all(color: const Color(0xFFE6ECE8)),
                     ),
                     child: TextField(
-                      controller: _searchController,
+                      controller: _textController,
                       autofocus: true,
-                      onChanged: (value) => setState(() => _query = value),
+                      onChanged: _onChanged,
                       style: const TextStyle(
                         fontFamily: 'Gilroy',
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w400,
                       ),
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: 'search_hint'.tr,
                         hintStyle: const TextStyle(color: Colors.grey),
-                        prefixIcon: const HugeIcon(
-                          icon: HugeIcons.strokeRoundedSearch01,
+                        contentPadding: const EdgeInsets.only(left: 14, top: 18, bottom: 6, right: 8),
+                        prefixIcon: Icon(
+                          IconlyLight.search,
                           color: Colors.grey,
                           size: 20,
                         ),
-                        suffixIcon: _query.isEmpty
-                            ? null
-                            : IconButton(
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() => _query = '');
-                                },
-                                icon: const HugeIcon(
-                                  icon: HugeIcons.strokeRoundedCancel01,
-                                  color: Colors.grey,
-                                  size: 18,
+                        suffixIcon: Obx(
+                          () => _controller.query.value.isEmpty
+                              ? const SizedBox.shrink()
+                              : IconButton(
+                                  onPressed: _clearSearch,
+                                  icon: Icon(
+                                    IconlyLight.search,
+                                    color: Colors.grey,
+                                    size: 18,
+                                  ),
                                 ),
-                              ),
+                        ),
                       ),
                     ),
                   ),
@@ -147,110 +123,225 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-                children: [
-                  if (_query.isEmpty) ...[
-                    Text(
-                      'recent_searches'.tr,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        fontFamily: 'Gilroy',
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _recentSearches
-                          .map(
-                            (item) => GestureDetector(
-                              onTap: () {
-                                _searchController.text = item;
-                                setState(() => _query = item);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                      color: const Color(0xFFE7ECE8)),
-                                ),
+              child: Obx(() {
+                final q = _controller.query.value;
+                final isLoading = _controller.isLoading.value;
+                final hasError = _controller.hasError.value;
+                final results = _controller.results;
+
+                if (q.isEmpty) {
+                  return Obx(() {
+                    final history = _controller.searchHistory;
+                    return ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'recent_searches'.tr,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                fontFamily: 'Gilroy',
+                              ),
+                            ),
+                            if (history.isNotEmpty)
+                              GestureDetector(
+                                onTap: () {
+                                  _controller.clearSearchHistory();
+                                },
                                 child: Text(
-                                  item,
+                                  'clear_all'.tr,
                                   style: const TextStyle(
+                                    color: Color(0xff22B241),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                     fontFamily: 'Gilroy',
                                   ),
                                 ),
                               ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        if (history.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: Center(
+                              child: Text(
+                                'no_recent_searches'.tr,
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'Gilroy',
+                                ),
+                              ),
                             ),
                           )
-                          .toList(),
-                    ),
-                    const SizedBox(height: 18),
-                  ],
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'results'.tr,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'Gilroy',
-                        ),
-                      ),
-                      Text(
-                        '${filtered.length} ${'products'.tr}',
-                        style: const TextStyle(
-                          color: Color(0xff22B241),
-                          fontWeight: FontWeight.w800,
-                          fontFamily: 'Gilroy',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (filtered.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE7ECE8)),
-                      ),
-                      child: Column(
-                        children: [
-                          const HugeIcon(
-                            icon: HugeIcons.strokeRoundedSearchRemove,
-                            color: Colors.grey,
-                            size: 30,
+                        else
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: history
+                                .map(
+                                  (item) => GestureDetector(
+                                    onTap: () {
+                                      _textController.text = item;
+                                      _controller.search(item);
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: const Color(0xFFE7ECE8)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            item,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              fontFamily: 'Gilroy',
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          GestureDetector(
+                                            onTap: () {
+                                              _controller.removeFromSearchHistory(item);
+                                            },
+                                            child: const HugeIcon(
+                                              icon: HugeIcons.strokeRoundedCancel01,
+                                              color: Colors.grey,
+                                              size: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
                           ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'no_results'.tr,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontFamily: 'Gilroy',
+                      ],
+                    );
+                  });
+                }
+
+                if (isLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xff22B241),
+                    ),
+                  );
+                }
+
+                if (hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const HugeIcon(
+                          icon: HugeIcons.strokeRoundedWifiOff01,
+                          color: Colors.grey,
+                          size: 40,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'error_occurred'.tr,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'Gilroy',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: () => _controller.search(q),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff22B241),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'retry'.tr,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Gilroy',
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    )
-                  else
-                    ...filtered.map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _SearchResultCard(item: item),
-                      ),
+                        ),
+                      ],
                     ),
-                ],
-              ),
+                  );
+                }
+
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'results'.tr,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            fontFamily: 'Gilroy',
+                          ),
+                        ),
+                        Text(
+                          '${results.length} ${'products'.tr}',
+                          style: const TextStyle(
+                            color: Color(0xff22B241),
+                            fontWeight: FontWeight.w800,
+                            fontFamily: 'Gilroy',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (results.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE7ECE8)),
+                        ),
+                        child: Column(
+                          children: [
+                            const HugeIcon(
+                              icon: HugeIcons.strokeRoundedSearchRemove,
+                              color: Colors.grey,
+                              size: 30,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'no_results'.tr,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Gilroy',
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      ...results.map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _SearchResultCard(product: item),
+                        ),
+                      ),
+                  ],
+                );
+              }),
             ),
           ],
         ),
@@ -260,18 +351,19 @@ class _SearchScreenState extends State<SearchScreen> {
 }
 
 class _SearchResultCard extends StatelessWidget {
-  final Map<String, dynamic> item;
+  final ProductModel product;
 
-  const _SearchResultCard({required this.item});
+  const _SearchResultCard({required this.product});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => Get.to(
         () => ProductDetailScreen(
-          title: item['title'] as String,
-          imageUrl: item['image'] as String,
-          price: item['price'] as double,
+          title: product.name,
+          imageUrl: product.image ?? '',
+          price: product.price,
+          id: product.id.toString(),
         ),
         binding: ProductDetailBinding(),
       ),
@@ -293,10 +385,28 @@ class _SearchResultCard extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  item['image'] as String,
-                  fit: BoxFit.contain,
-                ),
+                child: product.image != null && product.image!.isNotEmpty
+                    ? (product.image!.startsWith('assets')
+                        ? Image.asset(
+                            product.image!,
+                            fit: BoxFit.contain,
+                          )
+                        : Image.network(
+                            product.image!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null,
+                                  color: const Color(0xff22B241),
+                                  strokeWidth: 2,
+                                ),
+                              );
+                            },
+                          ))
+                    : const Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
               ),
             ),
             Expanded(
@@ -305,18 +415,26 @@ class _SearchResultCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      item['category'] as String,
-                      style: const TextStyle(
-                        color: Color(0xff22B241),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        fontFamily: 'Gilroy',
+                    if (product.discount != null && product.discount! > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xff22B241).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '-${product.discount!.toStringAsFixed(0)}%',
+                          style: const TextStyle(
+                            color: Color(0xff22B241),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            fontFamily: 'Gilroy',
+                          ),
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 4),
                     Text(
-                      item['title'] as String,
+                      product.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -327,14 +445,31 @@ class _SearchResultCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      '${(item['price'] as double).toStringAsFixed(0)} TMT',
-                      style: const TextStyle(
-                        color: Color(0xff22B241),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'Gilroy',
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          '${product.price.toStringAsFixed(0)} TMT',
+                          style: const TextStyle(
+                            color: Color(0xff22B241),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            fontFamily: 'Gilroy',
+                          ),
+                        ),
+                        if (product.oldPrice != null) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            '${product.oldPrice!.toStringAsFixed(0)} TMT',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Gilroy',
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),

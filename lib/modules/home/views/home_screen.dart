@@ -1,28 +1,24 @@
 import 'package:feather_icons/feather_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hugeicons/hugeicons.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:atlas/modules/home/controllers/home_controller.dart';
 import 'package:atlas/modules/home/widgets/home_widgets.dart';
 import 'package:atlas/modules/product/controllers/product_controller.dart';
 import 'package:atlas/models/product_model.dart';
+import 'package:atlas/modules/category/controllers/category_controller.dart';
+import 'package:atlas/modules/category/views/category_detail_screen.dart';
+import 'package:atlas/widgets/app_network_image.dart';
 import 'package:atlas/widgets/product_card.dart';
 import 'package:atlas/widgets/app_dialogs.dart';
 import 'package:atlas/widgets/app_loading_state.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/modules/main/controllers/main_controller.dart';
 import 'package:atlas/modules/category/views/sub_category_product_screen.dart';
-import 'package:atlas/modules/search/views/search_screen.dart';
 import 'package:atlas/modules/product_detail/views/product_detail_screen.dart';
 import 'package:atlas/modules/product_detail/bindings/product_detail_binding.dart';
-
-// Müşteri hizmetleri numaraları — buradan kolayca değiştirebilirsin
-const _contactNumbers = [
-  {'label': 'Müşteri hizmetleri', 'number': '+99361000001'},
-  {'label': 'Teknik destek', 'number': '+99361000002'},
-  {'label': 'Sipariş takip', 'number': '+99361000003'},
-];
+import 'package:atlas/modules/home/views/contact_page.dart';
+import 'package:atlas/modules/search/views/search_screen.dart';
+import 'package:iconly/iconly.dart';
 
 class HomeScreen extends GetView<HomeController> {
   const HomeScreen({super.key});
@@ -32,11 +28,13 @@ class HomeScreen extends GetView<HomeController> {
     Get.find<CartController>();
     Get.find<MainController>();
     final productController = Get.find<ProductController>();
+    final categoryController = Get.find<CategoryController>();
+    final searchController = TextEditingController();
 
     void onCartPressed(ProductModel product) {
       AppDialogs.showQuickOrderDialog({
         'id': product.id,
-        'title': product.name,
+        'title': product.localizedName,
         'imageUrl': product.image ?? '',
         'price': product.price,
       });
@@ -46,7 +44,7 @@ class HomeScreen extends GetView<HomeController> {
       Get.to(
         () => ProductDetailScreen(
           id: product.id.toString(),
-          title: product.name,
+          title: product.localizedName,
           imageUrl: product.image ?? '',
           price: product.price,
         ),
@@ -65,13 +63,9 @@ class HomeScreen extends GetView<HomeController> {
         titleSpacing: 12,
         title: Row(
           children: [
-            // ── Telefon ikonu ──
-            GestureDetector(onTap: () => _showContactDialog(context), child: Icon(FeatherIcons.phoneCall, color: Colors.black87, size: 20)),
-            const SizedBox(width: 10),
-            // ── "Ter Market" logo yazısı ──
             Expanded(
               child: RichText(
-                textAlign: TextAlign.center,
+                textAlign: TextAlign.left,
                 text: TextSpan(
                   children: [
                     TextSpan(
@@ -98,12 +92,8 @@ class HomeScreen extends GetView<HomeController> {
             ),
             // ── Sağ: sadece arama ikonu ──
             GestureDetector(
-              onTap: () => Get.to(() => const SearchScreen()),
-              child: Icon(
-                FeatherIcons.search,
-                color: Colors.black87,
-                size: 20,
-              ),
+              onTap: () => Get.to(() => const ContactPage()),
+              child: Icon(FeatherIcons.phoneCall, color: Colors.black87, size: 20),
             ),
             const SizedBox(width: 4),
           ],
@@ -122,16 +112,80 @@ class HomeScreen extends GetView<HomeController> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 8),
-              const BannerCarousel(),
-              const SizedBox(height: 16),
-              _buildSectionHeader(
-                'Arzanladyşlar',
-                () => Get.to(
-                  () => const SubCategoryProductScreen(categoryName: 'Arzanladyşlar'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F5F5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFFE0E0E0),
+                            width: 1,
+                          ),
+                        ),
+                        child: TextField(
+                          controller: searchController,
+                          decoration: InputDecoration(
+                            hintText: 'search_hint'.tr,
+                            hintStyle: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 15,
+                              fontFamily: 'Gilroy',
+                              fontWeight: FontWeight.w500,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          onSubmitted: (value) {
+                            if (value.isNotEmpty) {
+                              Get.to(() => SearchScreen(initialQuery: value));
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: () {
+                        final query = searchController.text.trim();
+                        if (query.isNotEmpty) {
+                          Get.to(() => SearchScreen(initialQuery: query));
+                        } else {
+                          Get.to(() => const SearchScreen());
+                        }
+                      },
+                      child: Container(
+                        height: 50,
+                        width: 50,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4B2AA4),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          IconlyLight.search,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 7),
+              const BannerCarousel(),
+              _buildCategorySection(categoryController),
+              _buildSectionHeader(
+                'discounts'.tr,
+                () {
+                  Get.to(() => SubCategoryProductScreen(categoryName: 'discounts'.tr));
+                },
+              ),
               Obx(() {
                 if (productController.isLoadingDiscounted.value) {
                   return const SizedBox(height: 350, child: AppLoadingState());
@@ -140,10 +194,10 @@ class HomeScreen extends GetView<HomeController> {
                   return const SizedBox(height: 100);
                 }
                 return SizedBox(
-                  height: 350,
+                  height: 270,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.only(left: 16, right: 8),
                     itemCount: productController.discountedProducts.length,
                     itemBuilder: (context, index) {
                       final product = productController.discountedProducts[index];
@@ -152,7 +206,7 @@ class HomeScreen extends GetView<HomeController> {
                         child: ProductCard(
                           id: product.id.toString(),
                           imageUrl: product.image ?? '',
-                          title: product.name,
+                          title: product.localizedName,
                           price: product.price,
                           oldPrice: product.oldPrice,
                           rating: product.rating,
@@ -166,14 +220,13 @@ class HomeScreen extends GetView<HomeController> {
                   ),
                 );
               }),
-              const SizedBox(height: 15),
+              const SizedBox(height: 40),
               _buildSectionHeader(
-                'Täze harytlar',
-                () => Get.to(
-                  () => const SubCategoryProductScreen(categoryName: 'Täze harytlar'),
-                ),
+                'new_products'.tr,
+                () {
+                  Get.to(() => SubCategoryProductScreen(categoryName: 'new_products'.tr));
+                },
               ),
-              const SizedBox(height: 7),
               Obx(() {
                 if (productController.isLoadingNew.value) {
                   return const SizedBox(height: 350, child: AppLoadingState());
@@ -185,7 +238,7 @@ class HomeScreen extends GetView<HomeController> {
                   height: 350,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.only(left: 16, right: 8),
                     itemCount: productController.newProducts.length,
                     itemBuilder: (context, index) {
                       final product = productController.newProducts[index];
@@ -194,7 +247,7 @@ class HomeScreen extends GetView<HomeController> {
                         child: ProductCard(
                           id: product.id.toString(),
                           imageUrl: product.image ?? '',
-                          title: product.name,
+                          title: product.localizedName,
                           price: product.price,
                           oldPrice: product.oldPrice,
                           rating: product.rating,
@@ -217,106 +270,134 @@ class HomeScreen extends GetView<HomeController> {
     );
   }
 
-  void _showContactDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE0E0E0),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Habarlaşmak',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
+  Widget _buildCategorySection(CategoryController categoryController) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 14, bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'sections'.tr,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
                 fontFamily: 'Gilroy',
+                letterSpacing: -0.5,
               ),
             ),
-            const SizedBox(height: 16),
-            ..._contactNumbers.map(
-              (contact) => _buildContactTile(
-                label: contact['label']!,
-                number: contact['number']!,
+          ),
+          const SizedBox(height: 25),
+          Obx(() {
+            if (categoryController.isLoading.value) {
+              return const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (categoryController.categories.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            // Display up to 8 categories in a 4x2 grid
+            final displayCategories = categoryController.categories.take(12).toList();
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  childAspectRatio: 0.70,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: displayCategories.length,
+                itemBuilder: (context, index) {
+                  final category = displayCategories[index];
+                  return _buildCategoryCard(category);
+                },
               ),
-            ),
-          ],
-        ),
+            );
+          }),
+        ],
       ),
     );
   }
 
-  Widget _buildContactTile({required String label, required String number}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: ListTile(
-        onTap: () async {
-          final uri = Uri(scheme: 'tel', path: number);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri);
-          }
-        },
-        leading: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: const Color(0xFF4B2AA4).withOpacity(0.1),
-            shape: BoxShape.circle,
+  Widget _buildCategoryCard(category) {
+    return GestureDetector(
+      onTap: () {
+        Get.to(
+          () => CategoryDetailScreen(
+            categoryId: category.id,
+            categoryName: category.localizedName,
           ),
-          child: const Center(
-            child: Icon(
-              FeatherIcons.phoneCall,
-              color: Color(0xFF4B2AA4),
-              size: 20,
+        );
+      },
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F5F5),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (category.image != null)
+                  Container(
+                    width: 75,
+                    height: 65,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: AppNetworkImage(
+                        url: category.image!,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    width: 65,
+                    height: 65,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.category_outlined,
+                      size: 28,
+                      color: Color(0xFF4B2AA4),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
             ),
           ),
-        ),
-        title: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Gilroy',
+          Padding(
+            padding: const EdgeInsets.only(top: 8, right: 6, left: 6),
+            child: Text(
+              category.localizedName,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Gilroy',
+                height: 1.2,
+              ),
+            ),
           ),
-        ),
-        subtitle: Text(
-          number,
-          style: const TextStyle(
-            fontSize: 13,
-            color: Color(0xFF4B2AA4),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        trailing: HugeIcon(
-          icon: HugeIcons.strokeRoundedArrowRight01,
-          color: Color(0xFF4B2AA4),
-          size: 16,
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildSectionHeader(String title, VoidCallback onSeeAll) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.only(top: 16, right: 16, left: 16, bottom: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -332,9 +413,9 @@ class HomeScreen extends GetView<HomeController> {
           ),
           GestureDetector(
             onTap: onSeeAll,
-            child: const Text(
-              'Hemmesini gör',
-              style: TextStyle(
+            child: Text(
+              'see_all'.tr,
+              style: const TextStyle(
                 color: Color(0xff22B241),
                 fontWeight: FontWeight.w700,
                 fontFamily: 'Gilroy',

@@ -54,35 +54,3 @@ abstract class AppColors {
   static const limeGreen = Color(0xFFD3F1D9);
   static const white = Color(0xFFFFFFFF);
 }
-
-@immutable
-class ColorConstants {
-  const ColorConstants._();
-  static const Color kPrimaryColor = Color.fromARGB(255, 157, 172, 212);
-  static const Color kPrimaryColor2 = Color.fromARGB(255, 240, 10, 10);
-  static const Color background = Color.fromARGB(255, 231, 239, 255);
-  static const Color fonts = Color.fromARGB(255, 11, 21, 39);
-  static const Color secondary = Color.fromARGB(255, 157, 172, 212);
-  static const Color blue = Color.fromARGB(255, 31, 85, 188);
-  static const Color hastagtext = Color.fromARGB(255, 31, 85, 188);
-
-  //
-  static const Color kSecondaryColor = Color(0xff009B00);
-  static const Color successtatus = Color.fromARGB(255, 120, 229, 118);
-  static const Color kPrettyBlack = Color(0xff1A1A1A);
-  static const Color kPrettyBlack2 = Color(0xFF1d1d1b);
-  static const Color whiteColor = Colors.white;
-  static const Color blackColor = Color(0xFF121212);
-  static const Color greyColor = Colors.grey;
-  static const Color blueColorwithOpacity = Color(0xffcde7fc);
-  static const Color greenColor = kSecondaryColor;
-  static const Color greenColorwithOpacity = Color.fromARGB(255, 14, 120, 0);
-  static const Color greenColorwithOpacity2 = Color(0xffdcffce);
-  static const Color yellowColorwithOpacity = Color(0xfffedb00);
-  static const Color purpleColor = Color(0xffbf7ef3);
-  static const Color purpleColorwithOpacity = Color(0xffe6cefe);
-  static const Color greyColorwithOpacity = Color(0xfff2f5fc);
-  static const Color redColorwithOpacity = Color(0x00ff7272);
-  static const Color redColor = Colors.red;
-  static const Color premiumColor = Color(0xfffed42a);
-}

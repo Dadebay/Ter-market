@@ -20,8 +20,8 @@ class CategoryScreen extends GetView<CategoryController> {
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.white,
         titleSpacing: 16,
-        title: const Text(
-          'Kategoriýalar',
+        title: Text(
+            'categories'.tr,
           style: TextStyle(
             color: Colors.black,
             fontSize: 20,
@@ -37,14 +37,14 @@ class CategoryScreen extends GetView<CategoryController> {
         }
         if (controller.hasError.value) {
           return AppErrorState(
-            message: 'Ýalňyşlyk ýüze çykdy. Täzeden synanyşyň.',
+            message: 'error_retry'.tr,
             onRetry: controller.fetchCategories,
           );
         }
         if (controller.categories.isEmpty) {
-          return const AppEmptyState(
+          return AppEmptyState(
             icon: Icons.category_outlined,
-            title: 'Kategoriýa tapylmady',
+            title: 'no_categories'.tr,
           );
         }
         return ListView.builder(
@@ -56,7 +56,7 @@ class CategoryScreen extends GetView<CategoryController> {
               onTap: () => Get.to(
                 () => CategoryDetailScreen(
                   categoryId: cat.id,
-                  categoryName: cat.name,
+                  categoryName: cat.localizedName,
                 ),
               ),
               child: Container(
@@ -98,7 +98,7 @@ class CategoryScreen extends GetView<CategoryController> {
                       right: 56,
                       bottom: 16,
                       child: Text(
-                        cat.name,
+                        cat.localizedName,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,

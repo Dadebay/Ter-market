@@ -1,6 +1,11 @@
+import 'package:get/get.dart';
+import 'package:atlas/modules/profile/controllers/language_controller.dart';
+
 class ProductModel {
   final int id;
   final String name;
+  final String nameTk;
+  final String nameRu;
   final String? image;
   final double price;
   final double? oldPrice;
@@ -13,9 +18,20 @@ class ProductModel {
   final String? location;
   final bool isNew;
 
+  String get localizedName {
+    try {
+      final lang = Get.find<LanguageController>().selectedLanguage.value;
+      return lang == 'ru' ? nameRu : nameTk;
+    } catch (_) {
+      return name;
+    }
+  }
+
   const ProductModel({
     required this.id,
     required this.name,
+    this.nameTk = '',
+    this.nameRu = '',
     this.image,
     required this.price,
     this.oldPrice,
@@ -37,9 +53,13 @@ class ProductModel {
       return double.tryParse(val.toString()) ?? 0.0;
     }
 
+    final nameTk = (json['name_tk'] ?? json['name'] ?? json['title'] ?? '') as String;
+    final nameRu = (json['name_ru'] ?? json['name'] ?? json['title'] ?? '') as String;
     return ProductModel(
       id: json['id'] as int,
-      name: (json['name_tk'] ?? json['name_ru'] ?? json['name'] ?? json['title'] ?? '') as String,
+      name: nameTk.isNotEmpty ? nameTk : nameRu,
+      nameTk: nameTk,
+      nameRu: nameRu,
       image: _parseFirstImage(json),
       price: parseDouble(json['discounted_price'] ?? json['price']),
       oldPrice: (json['discounted_price'] != null && json['price'] != null) ? parseDouble(json['price']) : null,
@@ -59,7 +79,7 @@ class ProductModel {
     if (images is List && images.isNotEmpty) {
       final first = images.first;
       if (first is String) return first;
-      if (first is Map) return first['image'] as String? ?? first['url'] as String?;
+      if (first is Map) return first['img'] as String? ?? first['img'] as String?;
     }
     return json['image'] as String?;
   }

@@ -43,11 +43,9 @@ class AppNetworkImage extends StatelessWidget {
         height: height,
         color: backgroundColor ?? const Color(0xFFF9F9F9),
         padding: const EdgeInsets.all(8),
-        child: Image.asset(resolvedUrl, fit: fit,
-            errorBuilder: (_, __, ___) => _errorPlaceholder()),
+        child: Image.asset(resolvedUrl, fit: fit, errorBuilder: (_, __, ___) => _errorPlaceholder()),
       );
     }
-
     return CachedNetworkImage(
       imageUrl: resolvedUrl,
       width: width,

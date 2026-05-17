@@ -90,54 +90,44 @@ class _BannerCarouselState extends State<BannerCarousel> {
       final banners = controller.banners;
       _initCarousel(banners.length);
 
-      return Column(
-        children: [
-          SizedBox(
-            height: 160,
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: _multiplier * banners.length,
-              onPageChanged: (page) {
-                setState(() => _realIndex = page % banners.length);
-              },
-              itemBuilder: (context, index) {
-                final banner = banners[index % banners.length];
-                return GestureDetector(
-                  onTap: () => _handleBannerTap(banner),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: AppNetworkImage(
-                        url: banner.image,
-                        width: double.infinity,
-                        height: 160,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              banners.length,
-              (index) => AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                height: 8,
-                width: index == _realIndex ? 20 : 8,
+      return Container(
+        height: 220,
+        margin: EdgeInsets.only(bottom: 10, top: 10),
+        child: PageView.builder(
+          controller: _pageController,
+          itemCount: _multiplier * banners.length,
+          onPageChanged: (page) {
+            setState(() => _realIndex = page % banners.length);
+          },
+          itemBuilder: (context, index) {
+            final banner = banners[index % banners.length];
+            return GestureDetector(
+              onTap: () => _handleBannerTap(banner),
+              child: Container(
+                margin: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  color: index == _realIndex ? AppColors.primary : const Color(0xFFE0E6F0),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: AppNetworkImage(
+                    url: banner.image,
+                    width: double.infinity,
+                    height: 160,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       );
     });
   }

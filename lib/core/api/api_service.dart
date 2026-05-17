@@ -61,9 +61,7 @@ class ApiService {
     if (response.data is List) {
       return PaginatedProducts(
         count: (response.data as List).length,
-        results: (response.data as List)
-            .map((e) => ProductModel.fromJson(e as Map<String, dynamic>))
-            .toList(),
+        results: (response.data as List).map((e) => ProductModel.fromJson(e as Map<String, dynamic>)).toList(),
       );
     }
     return PaginatedProducts.fromJson(response.data as Map<String, dynamic>);
@@ -72,6 +70,79 @@ class ApiService {
   Future<ProductModel> getProductById(int id) async {
     final response = await _dio.get('products/$id/');
     return ProductModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // ─── About ──────────────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> getAboutContent() async {
+    final response = await _dio.get('about/');
+    final list = _extractList(response.data);
+    if (list.isNotEmpty) return list.first as Map<String, dynamic>;
+    return {};
+  }
+
+  // ─── Privacy / Terms ────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> getPrivacyContent() async {
+    final response = await _dio.get('privacy/');
+    final list = _extractList(response.data);
+    if (list.isNotEmpty) return list.first as Map<String, dynamic>;
+    return {};
+  }
+
+  // ─── FCM ────────────────────────────────────────────────────────────────────
+  Future<void> registerFcmToken(String token) async {
+    await _dio.post(
+      'fcm/',
+      data: FormData.fromMap({'fcm': token}),
+    );
+  }
+
+  // ─── Favourites ─────────────────────────────────────────────────────────────
+  Future<void> addFavourite(String deviceId, int productId) async {
+    await _dio.post(
+      'addFavourites/',
+      data: FormData.fromMap({'device_id': deviceId, 'product_id': productId}),
+    );
+  }
+
+  Future<void> removeFavourite(String deviceId, int productId) async {
+    await _dio.delete(
+      'removeFavourites/',
+      data: FormData.fromMap({'device_id': deviceId, 'product_id': productId}),
+    );
+  }
+
+  /// Returns a list of ProductModel. Handles both:
+  ///  - current backend: `product` is an int (product ID)
+  ///  - future backend:  `product` is a full product object
+  Future<List<ProductModel>> getFavourites(String deviceId) async {
+    final response = await _dio.get(
+      'getFavourites/',
+      queryParameters: {'device_id': deviceId},
+    );
+    final list = _extractList(response.data);
+    final products = <ProductModel>[];
+    for (final item in list) {
+      final raw = (item as Map<String, dynamic>)['product'];
+      if (raw is Map<String, dynamic>) {
+        // Backend already returns full model
+        products.add(ProductModel.fromJson(raw));
+      } else if (raw is int) {
+        // Backend returns only ID — fetch product detail
+        try {
+          final product = await getProductById(raw);
+          products.add(product);
+        } catch (_) {}
+      }
+    }
+    return products;
+  }
+
+  // ─── Device ─────────────────────────────────────────────────────────────────
+  Future<void> registerDevice(String deviceId) async {
+    await _dio.post(
+      'device/',
+      data: FormData.fromMap({'device_id': deviceId}),
+    );
   }
 
   // ─── Orders ─────────────────────────────────────────────────────────────────

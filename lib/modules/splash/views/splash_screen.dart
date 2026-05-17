@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:atlas/core/api/api_service.dart';
 import 'package:atlas/themes/colors.dart';
 import 'package:atlas/shared/no_internet_screen.dart';
 import 'package:atlas/modules/main/views/main_screen.dart';
@@ -61,7 +63,61 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       return;
     }
 
+    await _syncFcmToken();
+    await _syncDevice();
     Get.offAll(() => const MainScreen(), binding: MainBinding());
+  }
+
+  Future<void> _syncFcmToken() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission(alert: true, badge: true, sound: true);
+      final token = await messaging.getToken();
+      if (token == null) return;
+      print('[FCM] Current token: $token');
+
+      final storage = Get.find<GetStorage>();
+      final stored = storage.read<String>('fcm_token');
+      if (stored == token) return;
+
+      await ApiService().registerFcmToken(token);
+      storage.write('fcm_token', token);
+      print('[FCM] Token registered successfully: $token');
+
+      // Listen for token refreshes
+      messaging.onTokenRefresh.listen((newToken) async {
+        try {
+          await ApiService().registerFcmToken(newToken);
+          storage.write('fcm_token', newToken);
+          print('[FCM] Token refreshed and re-registered: $newToken');
+        } catch (e) {
+          print('[FCM] Token refresh failed: $e');
+        }
+      });
+    } catch (e) {
+      print('[FCM] Registration failed: $e');
+    }
+  }
+
+  Future<void> _syncDevice() async {
+    try {
+      final storage = Get.find<GetStorage>();
+      var deviceId = storage.read<String>('device_id');
+      if (deviceId == null) {
+        deviceId = 'atlas-${DateTime.now().millisecondsSinceEpoch}';
+        storage.write('device_id', deviceId);
+      }
+
+      // Only register once per unique device_id
+      final registered = storage.read<String>('device_registered');
+      if (registered == deviceId) return;
+
+      await ApiService().registerDevice(deviceId);
+      storage.write('device_registered', deviceId);
+      print('[Device] Registered successfully: $deviceId');
+    } catch (e) {
+      print('[Device] Registration failed: $e');
+    }
   }
 
   @override

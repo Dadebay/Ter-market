@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
+import 'package:atlas/widgets/app_dialogs.dart';
+import 'package:iconly/iconly.dart';
 
 class ProductCard extends StatefulWidget {
   final String title;
@@ -15,7 +17,7 @@ class ProductCard extends StatefulWidget {
   final String location;
   final String storeName;
   final bool showNewTag;
-  final String? id;
+  final dynamic id;
   final VoidCallback onTap;
   final VoidCallback? onCartPressed;
 
@@ -65,20 +67,17 @@ class _ProductCardState extends State<ProductCard> {
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(12)),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                   child: Container(
-                    height: 185,
+                    height: 155,
                     width: double.infinity,
                     color: const Color(0xFFF9F9F9),
                     child: widget.imageUrl.startsWith('assets')
                         ? Image.asset(widget.imageUrl, fit: BoxFit.cover)
                         : Image.network(
                             widget.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.image,
-                                    size: 40, color: Colors.grey),
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.image, size: 40, color: Colors.grey),
                           ),
                   ),
                 ),
@@ -87,8 +86,7 @@ class _ProductCardState extends State<ProductCard> {
                   right: 8,
                   child: Obx(() {
                     final favoritesController = Get.find<FavoritesController>();
-                    final bool isFavorited = favoritesController.isFavorited(
-                        widget.id, widget.title);
+                    final bool isFavorited = favoritesController.isFavorited(widget.id, widget.title);
 
                     return _FavoriteButton(
                       isFavorited: isFavorited,
@@ -100,6 +98,9 @@ class _ProductCardState extends State<ProductCard> {
                           'price': widget.price,
                           'rating': widget.rating,
                         });
+                        if (!isFavorited) {
+                          AppDialogs.showAddedToFavorites();
+                        }
                       },
                     );
                   }),
@@ -107,63 +108,39 @@ class _ProductCardState extends State<ProductCard> {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(left: 8, right: 8, top: 8),
+              padding: const EdgeInsets.only(left: 8, right: 8, top: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    height: 38,
-                    child: Text(
-                      widget.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        height: 1.2,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const HugeIcon(
-                        icon: HugeIcons.strokeRoundedShoppingBag01,
-                        color: Color(0xff22B241),
-                        size: 12,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        widget.storeName,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 7),
                   Text(
-                    '${widget.price.toStringAsFixed(0)} TMT',
+                    widget.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Color(0xff22B241),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      height: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 4),
+                    child: Text(
+                      '${widget.price.toStringAsFixed(0)} TMT',
+                      style: const TextStyle(
+                        color: Color(0xff22B241),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
                   Obx(
                     () {
-                      final isInCart = _cartController.cartItems
-                          .any((item) => item['title'] == widget.title);
+                      final isInCart = _cartController.cartItems.any((item) => item['title'] == widget.title);
                       final totalCount = _cartController.cartItems.fold<int>(
                         0,
                         (int sum, item) {
                           final dynamic q = item['quantity'] ?? 1;
-                          final int quantity =
-                              q is int ? q : (q as num).toInt();
+                          final int quantity = q is int ? q : (q as num).toInt();
                           return sum + quantity;
                         },
                       );
@@ -173,9 +150,7 @@ class _ProductCardState extends State<ProductCard> {
                           width: double.infinity,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: isInCart
-                                ? const Color(0xff22B241)
-                                : Colors.white,
+                            color: isInCart ? const Color(0xff22B241) : Colors.white,
                             border: Border.all(
                               color: const Color(0xff22B241),
                             ),
@@ -188,9 +163,7 @@ class _ProductCardState extends State<ProductCard> {
                               children: [
                                 HugeIcon(
                                   icon: HugeIcons.strokeRoundedShoppingCart01,
-                                  color: isInCart
-                                      ? Colors.white
-                                      : const Color(0xff22B241),
+                                  color: isInCart ? Colors.white : const Color(0xff22B241),
                                   size: 20,
                                 ),
                                 // if (isInCart) ...[
@@ -239,8 +212,7 @@ class _FavoriteButton extends StatefulWidget {
   State<_FavoriteButton> createState() => _FavoriteButtonState();
 }
 
-class _FavoriteButtonState extends State<_FavoriteButton>
-    with SingleTickerProviderStateMixin {
+class _FavoriteButtonState extends State<_FavoriteButton> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -292,8 +264,8 @@ class _FavoriteButtonState extends State<_FavoriteButton>
             ],
           ),
           child: widget.isFavorited
-              ? const Icon(
-                  Icons.favorite,
+              ? Icon(
+                  IconlyBold.heart,
                   color: Colors.red,
                   size: 16,
                 )

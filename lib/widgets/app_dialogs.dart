@@ -3,8 +3,99 @@ import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/modules/main/controllers/main_controller.dart';
+import 'package:iconly/iconly.dart';
 
 class AppDialogs {
+  /// Generic bottom snackbar — use this everywhere.
+  /// [message] : translated text
+  /// [icon]    : leading icon
+  /// [iconColor] : icon and tint color
+  static void showSnackbar({
+    required String message,
+    required IconData icon,
+    Color iconColor = const Color(0xFF22B241),
+  }) {
+    Get.closeAllSnackbars();
+    Get.showSnackbar(
+      GetSnackBar(
+        snackPosition: SnackPosition.BOTTOM,
+        snackStyle: SnackStyle.FLOATING,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: EdgeInsets.zero,
+        borderRadius: 18,
+        backgroundColor: Colors.transparent,
+        duration: const Duration(seconds: 2),
+        isDismissible: true,
+        messageText: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1D1B20),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.25),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: iconColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Gilroy',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Convenience shortcuts ───────────────────────────────────────────────
+  static void showAddedToFavorites() => showSnackbar(
+        message: 'added_to_favorites'.tr,
+        icon: IconlyBold.heart,
+        iconColor: Colors.red,
+      );
+
+  static void showRemovedFromFavorites() => showSnackbar(
+        message: 'removed_from_favorites'.tr,
+        icon: IconlyBold.heart,
+        iconColor: Colors.grey,
+      );
+
+  static void showAddedToCart() => showSnackbar(
+        message: 'added_to_cart'.tr,
+        icon: Icons.shopping_cart_rounded,
+        iconColor: const Color(0xFF22B241),
+      );
+
+  static void showRemovedFromCart() => showSnackbar(
+        message: 'removed_from_cart'.tr,
+        icon: Icons.shopping_cart_outlined,
+        iconColor: Colors.grey,
+      );
+
   static void showTopSuccessSnackbar({
     required String title,
     required String subtitle,
@@ -114,10 +205,7 @@ class AppDialogs {
                       width: 80,
                       height: 80,
                       color: const Color(0xFFF9F9F9),
-                      child: item['imageUrl'].toString().startsWith('assets')
-                          ? Image.asset(item['imageUrl'], fit: BoxFit.contain)
-                          : Image.network(item['imageUrl'],
-                              fit: BoxFit.contain),
+                      child: item['imageUrl'].toString().startsWith('assets') ? Image.asset(item['imageUrl'], fit: BoxFit.contain) : Image.network(item['imageUrl'], fit: BoxFit.contain),
                     ),
                   ),
                   const SizedBox(width: 15),
@@ -155,11 +243,7 @@ class AppDialogs {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _buildQtyBtn(
-                    const Text('-',
-                        style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xff22B241))),
+                    const Text('-', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xff22B241))),
                     () {
                       if (quantity.value > 1) quantity.value--;
                     },
@@ -174,11 +258,7 @@ class AppDialogs {
                       )),
                   const SizedBox(width: 20),
                   _buildQtyBtn(
-                    const Text('+',
-                        style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xff22B241))),
+                    const Text('+', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xff22B241))),
                     () => quantity.value++,
                   ),
                 ],
@@ -193,38 +273,26 @@ class AppDialogs {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: const BorderSide(color: Colors.grey),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Text('Ýok',
-                          style: TextStyle(color: Colors.black)),
+                      child: const Text('Ýok', style: TextStyle(color: Colors.black)),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        cartController.addItem(item,
-                            initialQuantity: quantity.value);
+                        cartController.addItem(item, initialQuantity: quantity.value);
                         Get.back();
-                        showTopSuccessSnackbar(
-                          title: 'Sebede üstünlikli goşuldy',
-                          subtitle:
-                              '${quantity.value} sany • ${item['price']} TMT',
-                          icon: HugeIcons.strokeRoundedShoppingCart01,
-                        );
+                        AppDialogs.showAddedToCart();
                         mainController.changeIndex(3);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xff22B241),
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Text('Hawa',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold)),
+                      child: const Text('Hawa', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],

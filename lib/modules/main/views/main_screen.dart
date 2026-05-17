@@ -18,10 +18,9 @@ class MainScreen extends GetView<MainController> {
     return Scaffold(
       body: Obx(() => IndexedStack(
             index: controller.currentIndex.value,
-            children: const [
+            children: [
               HomeScreen(),
               CategoryScreen(),
-              FavoritesScreen(),
               CartScreen(),
               ProfileScreen(),
             ],
@@ -49,11 +48,6 @@ class MainScreen extends GetView<MainController> {
               icon: const HugeIcon(icon: HugeIcons.strokeRoundedGridView, color: Colors.grey),
               activeIcon: const HugeIcon(icon: HugeIcons.strokeRoundedGridView, color: AppColors.primary),
               label: 'category'.tr, // <--- .tr goşuldy
-            ),
-            BottomNavigationBarItem(
-              icon: const HugeIcon(icon: HugeIcons.strokeRoundedFavourite, color: Colors.grey),
-              activeIcon: const HugeIcon(icon: HugeIcons.strokeRoundedFavourite, color: AppColors.primary),
-              label: 'favorites'.tr, // <--- .tr goşuldy
             ),
             BottomNavigationBarItem(
               icon: Badge(

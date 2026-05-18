@@ -12,6 +12,9 @@ class OrderController extends GetxController {
   var isPlacingOrder = false.obs;
   var hasError = false.obs;
 
+  var paymentMethods = <PaymentMethod>[].obs;
+  var isLoadingPayments = false.obs;
+
   String get deviceId {
     var id = _storage.read<String>('device_id');
     if (id == null) {
@@ -25,6 +28,18 @@ class OrderController extends GetxController {
   void onInit() {
     super.onInit();
     fetchMyOrders();
+    fetchPaymentMethods();
+  }
+
+  Future<void> fetchPaymentMethods() async {
+    isLoadingPayments.value = true;
+    try {
+      paymentMethods.value = await _api.getPaymentMethods();
+    } catch (_) {
+      // silently fail - will retry when order screen opens
+    } finally {
+      isLoadingPayments.value = false;
+    }
   }
 
   Future<void> fetchMyOrders() async {
@@ -42,6 +57,7 @@ class OrderController extends GetxController {
   Future<bool> placeOrder({
     required String phoneNumber,
     required String address,
+    required String paymentStatus,
     required List<Map<String, dynamic>> cartItems,
   }) async {
     isPlacingOrder.value = true;
@@ -50,6 +66,7 @@ class OrderController extends GetxController {
         deviceId: deviceId,
         phoneNumber: phoneNumber,
         address: address,
+        paymentStatus: paymentStatus,
         items: cartItems.map((item) {
           final productId = item['id'];
           return OrderItemRequest(
@@ -61,7 +78,10 @@ class OrderController extends GetxController {
       final order = await _api.createOrder(request);
       orders.insert(0, order);
       return true;
-    } catch (_) {
+    } catch (e) {
+      print('┌─── CREATE ORDER ERROR ────────────────────────');
+      print('│ $e');
+      print('└───────────────────────────────────────────────');
       return false;
     } finally {
       isPlacingOrder.value = false;

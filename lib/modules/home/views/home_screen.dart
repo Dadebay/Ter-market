@@ -13,7 +13,6 @@ import 'package:atlas/widgets/app_dialogs.dart';
 import 'package:atlas/widgets/app_loading_state.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/modules/main/controllers/main_controller.dart';
-import 'package:atlas/modules/category/views/sub_category_product_screen.dart';
 import 'package:atlas/modules/product_detail/views/product_detail_screen.dart';
 import 'package:atlas/modules/product_detail/bindings/product_detail_binding.dart';
 import 'package:atlas/modules/home/views/contact_page.dart';
@@ -43,10 +42,12 @@ class HomeScreen extends GetView<HomeController> {
     void onProductTap(ProductModel product) {
       Get.to(
         () => ProductDetailScreen(
-          id: product.id.toString(),
+          productId: product.id,
           title: product.localizedName,
           imageUrl: product.image ?? '',
           price: product.price,
+          oldPrice: product.oldPrice,
+          images: product.allImages,
         ),
         binding: ProductDetailBinding(),
       );
@@ -183,7 +184,10 @@ class HomeScreen extends GetView<HomeController> {
               _buildSectionHeader(
                 'discounts'.tr,
                 () {
-                  Get.to(() => SubCategoryProductScreen(categoryName: 'discounts'.tr));
+                  Get.to(() => CategoryDetailScreen(
+                        categoryName: 'discounts'.tr,
+                        initialFilter: 'price_high',
+                      ));
                 },
               ),
               Obx(() {
@@ -224,7 +228,10 @@ class HomeScreen extends GetView<HomeController> {
               _buildSectionHeader(
                 'new_products'.tr,
                 () {
-                  Get.to(() => SubCategoryProductScreen(categoryName: 'new_products'.tr));
+                  Get.to(() => CategoryDetailScreen(
+                        categoryName: 'new_products'.tr,
+                        initialFilter: 'newest',
+                      ));
                 },
               ),
               Obx(() {

@@ -49,6 +49,51 @@ class CartController extends GetxController {
     }
   }
 
+  /// Returns the current cart quantity for the product, or 0 if not in cart.
+  int getQuantity(dynamic id, String title) {
+    final item = cartItems.firstWhereOrNull(
+      (e) => (id != null && e['id']?.toString() == id.toString()) || e['title'] == title,
+    );
+    return item != null ? ((item['quantity'] as num?)?.toInt() ?? 1) : 0;
+  }
+
+  /// Adds item to cart if not present, otherwise increments quantity.
+  void addOrIncrement(Map<String, dynamic> item) {
+    final id = item['id'];
+    final title = item['title'] as String? ?? '';
+    int index = cartItems.indexWhere(
+      (e) => (id != null && e['id']?.toString() == id.toString()) || e['title'] == title,
+    );
+    if (index != -1) {
+      var existing = Map<String, dynamic>.from(cartItems[index]);
+      existing['quantity'] = ((existing['quantity'] as num?)?.toInt() ?? 1) + 1;
+      cartItems[index] = existing;
+    } else {
+      final newItem = Map<String, dynamic>.from(item);
+      newItem['quantity'] = 1;
+      cartItems.add(newItem);
+      AppDialogs.showAddedToCart();
+    }
+  }
+
+  /// Increments (+1) or decrements (-1) a cart item by product id/title.
+  /// Removes item from cart if quantity drops to 0.
+  void changeQuantityByProduct(dynamic id, String title, int delta) {
+    int index = cartItems.indexWhere(
+      (e) => (id != null && e['id']?.toString() == id.toString()) || e['title'] == title,
+    );
+    if (index == -1) return;
+    var item = Map<String, dynamic>.from(cartItems[index]);
+    int newQty = ((item['quantity'] as num?)?.toInt() ?? 1) + delta;
+    if (newQty <= 0) {
+      cartItems.removeAt(index);
+      AppDialogs.showRemovedFromCart();
+    } else {
+      item['quantity'] = newQty;
+      cartItems[index] = item;
+    }
+  }
+
   void clearCart() {
     cartItems.clear();
   }

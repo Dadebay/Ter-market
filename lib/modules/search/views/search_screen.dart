@@ -360,10 +360,12 @@ class _SearchResultCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => Get.to(
         () => ProductDetailScreen(
-          title: product.name,
+          productId: product.id,
+          title: product.localizedName,
           imageUrl: product.image ?? '',
           price: product.price,
-          id: product.id.toString(),
+          oldPrice: product.oldPrice,
+          images: product.allImages,
         ),
         binding: ProductDetailBinding(),
       ),

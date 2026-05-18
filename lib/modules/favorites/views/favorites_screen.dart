@@ -69,7 +69,7 @@ class FavoritesScreen extends GetView<FavoritesController> {
             rating: (product['rating'] ?? 0.0) as double,
             onTap: () => Get.to(
               () => ProductDetailScreen(
-                id: product['id'],
+                productId: int.tryParse(product['id']?.toString() ?? '') ?? 0,
                 title: title,
                 imageUrl: product['imageUrl'] as String,
                 price: (product['price'] is int) ? (product['price'] as int).toDouble() : (product['price'] as double),

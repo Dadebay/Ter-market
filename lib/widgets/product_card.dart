@@ -114,7 +114,7 @@ class _ProductCardState extends State<ProductCard> {
                 children: [
                   Text(
                     widget.title,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 15,
@@ -135,54 +135,35 @@ class _ProductCardState extends State<ProductCard> {
                   ),
                   Obx(
                     () {
-                      final isInCart = _cartController.cartItems.any((item) => item['title'] == widget.title);
-                      final totalCount = _cartController.cartItems.fold<int>(
-                        0,
-                        (int sum, item) {
-                          final dynamic q = item['quantity'] ?? 1;
-                          final int quantity = q is int ? q : (q as num).toInt();
-                          return sum + quantity;
-                        },
-                      );
+                      final qty = _cartController.getQuantity(widget.id, widget.title);
+                      if (qty > 0) {
+                        return _QuantityCounter(
+                          quantity: qty,
+                          onDecrement: () => _cartController.changeQuantityByProduct(widget.id, widget.title, -1),
+                          onIncrement: () => _cartController.changeQuantityByProduct(widget.id, widget.title, 1),
+                        );
+                      }
                       return GestureDetector(
-                        onTap: widget.onCartPressed,
+                        onTap: () => _cartController.addOrIncrement({
+                          'id': widget.id,
+                          'title': widget.title,
+                          'imageUrl': widget.imageUrl,
+                          'price': widget.price,
+                          'rating': widget.rating,
+                        }),
                         child: Container(
                           width: double.infinity,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: isInCart ? const Color(0xff22B241) : Colors.white,
-                            border: Border.all(
-                              color: const Color(0xff22B241),
-                            ),
+                            color: Colors.white,
+                            border: Border.all(color: const Color(0xff22B241)),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                HugeIcon(
-                                  icon: HugeIcons.strokeRoundedShoppingCart01,
-                                  color: isInCart ? Colors.white : const Color(0xff22B241),
-                                  size: 20,
-                                ),
-                                // if (isInCart) ...[
-                                //   if (totalCount > 0) ...[
-                                //     Container(
-                                //       padding: const EdgeInsets.symmetric(
-                                //           horizontal: 7, vertical: 2),
-                                //       child: Text(
-                                //         '($totalCount)',
-                                //         style: const TextStyle(
-                                //           color: Colors.white,
-                                //           fontWeight: FontWeight.w600,
-                                //           fontSize: 12,
-                                //         ),
-                                //       ),
-                                //     ),
-                                //   ],
-                                // ],
-                              ],
+                          child: const Center(
+                            child: HugeIcon(
+                              icon: HugeIcons.strokeRoundedShoppingCart01,
+                              color: Color(0xff22B241),
+                              size: 20,
                             ),
                           ),
                         ),
@@ -194,6 +175,62 @@ class _ProductCardState extends State<ProductCard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _QuantityCounter extends StatelessWidget {
+  final int quantity;
+  final VoidCallback onDecrement;
+  final VoidCallback onIncrement;
+
+  const _QuantityCounter({
+    required this.quantity,
+    required this.onDecrement,
+    required this.onIncrement,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        color: const Color(0xff22B241),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          GestureDetector(
+            onTap: onDecrement,
+            child: const SizedBox(
+              width: 40,
+              height: 40,
+              child: Center(
+                child: Icon(Icons.remove, color: Colors.white, size: 18),
+              ),
+            ),
+          ),
+          Text(
+            '$quantity',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+            ),
+          ),
+          GestureDetector(
+            onTap: onIncrement,
+            child: const SizedBox(
+              width: 40,
+              height: 40,
+              child: Center(
+                child: Icon(Icons.add, color: Colors.white, size: 18),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:atlas/modules/favorites/views/favorites_screen.dart';
+import 'package:atlas/modules/orders/views/my_orders_screen.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -62,6 +63,12 @@ class _LoggedInBody extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+          const SizedBox(height: 12),
+          _buildMenuItem(
+            HugeIcons.strokeRoundedShoppingBag01,
+            'my_orders'.tr,
+            () => Get.to(() => const MyOrdersScreen()),
           ),
           const SizedBox(height: 12),
           _buildMenuItem(
@@ -151,83 +158,6 @@ Widget _buildMenuItem(
           ),
         ),
       ),
-    ),
-  );
-}
-
-void _showEditDialog(BuildContext context) {
-  final nameCtrl = TextEditingController(text: 'Musteri');
-  final phoneCtrl = TextEditingController(text: 'Musteri');
-
-  showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: Text(
-        'edit_profile'.tr,
-        style: const TextStyle(
-          fontFamily: 'Gilroy',
-          fontWeight: FontWeight.w800,
-          fontSize: 18,
-        ),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _DialogField(
-            controller: nameCtrl,
-            label: 'full_name'.tr,
-            icon: HugeIcons.strokeRoundedUser,
-          ),
-          const SizedBox(height: 12),
-          _DialogField(
-            controller: phoneCtrl,
-            label: 'phone_number'.tr,
-            icon: HugeIcons.strokeRoundedCall,
-            keyboardType: TextInputType.phone,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Get.back(),
-          child: Text(
-            'cancel'.tr,
-            style: const TextStyle(
-              color: Color(0xFF22B241),
-              fontWeight: FontWeight.w600,
-              fontFamily: 'Gilroy',
-            ),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            // auth.updateProfile(
-            //   name: nameCtrl.text.trim(),
-            //   phone: phoneCtrl.text.trim(),
-            // );
-            Get.back();
-            Get.snackbar(
-              'success'.tr,
-              'profile_updated'.tr,
-              snackPosition: SnackPosition.BOTTOM,
-              backgroundColor: const Color(0xFF22B241),
-              colorText: Colors.white,
-              duration: const Duration(seconds: 2),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF22B241),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 0,
-          ),
-          child: Text(
-            'save'.tr,
-            style: const TextStyle(fontFamily: 'Gilroy', fontWeight: FontWeight.w700),
-          ),
-        ),
-      ],
     ),
   );
 }
@@ -345,39 +275,4 @@ void _showDeleteAccountDialog(BuildContext context) {
       ),
     ),
   );
-}
-
-class _DialogField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final IconData icon;
-  final TextInputType keyboardType;
-
-  const _DialogField({
-    required this.controller,
-    required this.label,
-    required this.icon,
-    this.keyboardType = TextInputType.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(fontFamily: 'Gilroy'),
-        prefixIcon: HugeIcon(icon: icon, size: 20, color: const Color(0xFF22B241)),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        filled: true,
-        fillColor: const Color(0xFFF9F9F9),
-        contentPadding: const EdgeInsets.all(14),
-      ),
-      style: const TextStyle(fontFamily: 'Gilroy', fontSize: 15),
-    );
-  }
 }

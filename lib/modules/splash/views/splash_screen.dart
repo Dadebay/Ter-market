@@ -75,6 +75,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       final token = await messaging.getToken();
       if (token == null) return;
       print('[FCM] Current token: $token');
+      print('[DEVICE ID: ${Get.find<GetStorage>().read<String>('device_id')}]');
 
       final storage = Get.find<GetStorage>();
       final stored = storage.read<String>('fcm_token');

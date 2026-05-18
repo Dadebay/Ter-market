@@ -21,7 +21,7 @@ class ApiService {
   Future<List<CategoryModel>> getCategories() async {
     final response = await _dio.get('categories/');
     final list = _extractList(response.data);
-    return list.map((e) => CategoryModel.fromJson(e as Map<String, dynamic>)).toList();
+    return list.map((e) => CategoryModel.fromJson(e as Map<String, dynamic>)).toList().reversed.toList();
   }
 
   Future<CategoryModel> getCategoryById(int id) async {
@@ -146,6 +146,12 @@ class ApiService {
   }
 
   // ─── Orders ─────────────────────────────────────────────────────────────────
+  Future<List<PaymentMethod>> getPaymentMethods() async {
+    final response = await _dio.get('payments/');
+    final list = _extractList(response.data);
+    return list.map((e) => PaymentMethod.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   Future<List<OrderModel>> getMyOrders(String deviceId) async {
     final response = await _dio.get(
       'orders/',
@@ -156,7 +162,16 @@ class ApiService {
   }
 
   Future<OrderModel> createOrder(CreateOrderRequest request) async {
-    final response = await _dio.post('orders/', data: request.toJson());
+    final body = request.toJson();
+    print('┌─── CREATE ORDER REQUEST ──────────────────────');
+    print('│ POST orders/');
+    print('│ Body: $body');
+    print('└───────────────────────────────────────────────');
+    final response = await _dio.post('orders/', data: body);
+    print('┌─── CREATE ORDER RESPONSE ─────────────────────');
+    print('│ Status: ${response.statusCode}');
+    print('│ Body:   ${response.data}');
+    print('└───────────────────────────────────────────────');
     return OrderModel.fromJson(response.data as Map<String, dynamic>);
   }
 

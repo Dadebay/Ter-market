@@ -6,249 +6,335 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:atlas/modules/product_detail/controllers/product_detail_controller.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
-import 'package:atlas/modules/main/controllers/main_controller.dart';
+import 'package:atlas/modules/profile/controllers/language_controller.dart';
 import 'package:atlas/widgets/app_dialogs.dart';
 
-class ProductDetailScreen extends GetView<ProductDetailController> {
+class ProductDetailScreen extends StatefulWidget {
+  final int productId;
   final String title;
   final String imageUrl;
   final double price;
-  final dynamic id;
+  final double? oldPrice;
+  final List<String> images;
 
   const ProductDetailScreen({
     super.key,
+    required this.productId,
     required this.title,
-    required this.imageUrl,
+    this.imageUrl = '',
     required this.price,
-    this.id,
+    this.oldPrice,
+    this.images = const [],
   });
 
-  static const Map<String, Map<String, dynamic>> _detailsByTitle = {
-    'A4,A3 Kagyz (500 saypa)': {
-      'code': 'a4-a3-500',
-      'id': 'AT-1001',
-      'seller': 'Sab computers',
-      'description': 'A4,A3 kagyz toplumy çap etmek, ýazmak we resmi resminamalar üçin amatly ýokary hilli kagyzdyr.',
-      'specs': [
-        ['product_type', 'Ofis kagyzy'],
-        ['product_volume', '500 saypa'],
-        ['product_feature', 'A4 we A3'],
-      ],
-    },
-    'Gara Galamlar (12-li set)': {
-      'code': 'gara-galam-12',
-      'id': 'AT-1002',
-      'seller': 'Sab computers',
-      'description': '12-li gara galamlar toplumy gündelik ýazgylar, okuw we ofis işleri üçin amatly, ýeňil hem rahat ulanylýar.',
-      'specs': [
-        ['product_type', 'Gara galam'],
-        ['product_volume', '12 sany'],
-        ['product_feature', 'Okuw we ofis'],
-      ],
-    },
-    'Yapyşdyryjy kleý 50ml': {
-      'code': 'kley-50ml',
-      'id': 'AT-1003',
-      'seller': 'Sab computers',
-      'description': '50ml ýapyşdyryjy kleý kagyz, karton we ýeňil materiallar üçin çalt we ygtybarly ýapyşdyrma berýär.',
-      'specs': [
-        ['product_type', 'Kleý'],
-        ['product_volume', '50 ml'],
-        ['product_feature', 'Çalt gurama'],
-      ],
-    },
-    'Depder Kagyz': {
-      'code': 'depder-kagyz',
-      'id': 'AT-1004',
-      'seller': 'Sab computers',
-      'description': 'Depder kagyz okuwçylar we ofis üçin amatly, arassa ak we ýumşak ýazylýan gurluşa eýe önümdir.',
-      'specs': [
-        ['product_type', 'Depder kagyz'],
-        ['product_volume', 'Standart'],
-        ['product_feature', 'Okuw we ýazgy'],
-      ],
-    },
-  };
+  @override
+  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+}
+
+class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  late ProductDetailController _ctrl;
+  late CartController _cartCtrl;
+  late PageController _pageCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = Get.find<ProductDetailController>();
+    _cartCtrl = Get.find<CartController>();
+    _pageCtrl = PageController();
+    _ctrl.loadProduct(widget.productId);
+  }
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  List<String> get _images {
+    final p = _ctrl.product.value;
+    if (p != null && p.allImages.isNotEmpty) return p.allImages;
+    if (widget.images.isNotEmpty) return widget.images;
+    if (widget.imageUrl.isNotEmpty) return [widget.imageUrl];
+    return [];
+  }
+
+  String get _localizedDescription {
+    final p = _ctrl.product.value;
+    if (p == null) return '';
+    try {
+      final lang = Get.find<LanguageController>().selectedLanguage.value;
+      final desc = lang == 'ru' ? (p.descriptionRu ?? '') : (p.descriptionTk ?? '');
+      return desc.isNotEmpty ? desc : (p.description ?? '');
+    } catch (_) {
+      return p.description ?? '';
+    }
+  }
+
+  String get _localizedCategoryName {
+    final p = _ctrl.product.value;
+    return p?.categoryName ?? '';
+  }
+
+  String get _localizedSubCategoryName {
+    final p = _ctrl.product.value;
+    return p?.subCategoryName ?? '';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final data = _detailsByTitle[title] ??
-        {
-          'code': 'atlas-product',
-          'id': 'AT-0000',
-          'seller': 'Sab computers',
-          'description': 'product_desc_default'.tr,
-          'specs': [
-            ['product_type', 'standard'],
-            ['product_volume', '-'],
-            ['product_feature', '-'],
-          ],
-        };
-
-    final specs = (data['specs'] as List).map((e) => [e[0].toString().tr, e[1]]).toList(growable: false);
-
-    final imageList = List<String>.filled(4, imageUrl);
-
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        scrolledUnderElevation: 0.0,
-        leading: IconButton(
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, color: Color(0xff22B241)),
-          onPressed: () => Get.back(),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          Obx(() {
-            final favoritesController = Get.find<FavoritesController>();
-            final bool isFavorited = favoritesController.isFavorited(id, title);
+      appBar: _buildAppBar(),
+      body: Obx(() {
+        if (_ctrl.isLoading.value) {
+          return const Center(child: CircularProgressIndicator(color: Color(0xff22B241)));
+        }
+        final product = _ctrl.product.value;
+        final displayTitle = product?.localizedName ?? widget.title;
+        final displayPrice = product?.price ?? widget.price;
+        final displayOldPrice = product?.oldPrice ?? widget.oldPrice;
+        final discountPct = product?.discount;
+        final imgs = _images;
 
-            return IconButton(
-              onPressed: () => favoritesController.toggleFavorite({
-                'id': id,
-                'title': title,
-                'imageUrl': imageUrl,
-                'price': price,
-              }),
-              icon: isFavorited
-                  ? const Icon(Icons.favorite, color: Colors.red)
-                  : const HugeIcon(
-                      icon: HugeIcons.strokeRoundedFavourite,
-                      color: Color(0xff22B241),
-                    ),
-            );
-          }),
-          IconButton(
-            onPressed: () {
-              final String shareMessage = '$title\n$imageUrl';
-              Share.share(shareMessage);
-            },
-            icon: const HugeIcon(icon: HugeIcons.strokeRoundedShare01, color: Color(0xff22B241)),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    height: 300,
-                    width: double.infinity,
-                    child: PageView.builder(
-                      onPageChanged: (idx) => controller.changeImage(idx),
-                      itemCount: imageList.length,
-                      itemBuilder: (context, index) {
-                        return GestureDetector(
-                          onTap: () {
-                            _showFullScreenImage(imageList, index);
+        return Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Image carousel
+                    if (imgs.isNotEmpty) ...[
+                      SizedBox(
+                        height: 300,
+                        child: PageView.builder(
+                          controller: _pageCtrl,
+                          itemCount: imgs.length,
+                          onPageChanged: _ctrl.changeImage,
+                          itemBuilder: (context, index) {
+                            return GestureDetector(
+                              onTap: () => _openFullscreen(imgs, index),
+                              child: Hero(
+                                tag: 'product_${widget.productId}_$index',
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                  child: _buildImage(imgs[index]),
+                                ),
+                              ),
+                            );
                           },
-                          child: Hero(
-                            tag: 'product_image_${id ?? title}_$index',
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                              child: imageList[index].startsWith('assets')
-                                  ? Image.asset(
-                                      imageList[index],
-                                      fit: BoxFit.contain,
-                                    )
-                                  : Image.network(
-                                      imageList[index],
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return const Icon(
-                                          Icons.broken_image,
-                                          size: 50,
-                                          color: Colors.grey,
-                                        );
-                                      },
+                        ),
+                      ),
+                      if (imgs.length > 1)
+                        Obx(() => Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(imgs.length, (i) {
+                                final selected = _ctrl.selectedImage.value == i;
+                                return GestureDetector(
+                                  onTap: () => _pageCtrl.animateToPage(i, duration: const Duration(milliseconds: 250), curve: Curves.easeInOut),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    width: selected ? 18 : 8,
+                                    height: 8,
+                                    margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                      color: selected ? const Color(0xff22B241) : Colors.grey.withOpacity(0.35),
                                     ),
+                                  ),
+                                );
+                              }),
+                            )),
+                    ],
+
+                    const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F0)),
+                    const SizedBox(height: 16),
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Category breadcrumb
+                          if (_localizedCategoryName.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    _localizedCategoryName,
+                                    style: const TextStyle(
+                                      color: Color(0xff22B241),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  if (_localizedSubCategoryName.isNotEmpty) ...[
+                                    const Icon(Icons.chevron_right, size: 14, color: Colors.grey),
+                                    Text(
+                                      _localizedSubCategoryName,
+                                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+
+                          // Title
+                          Text(
+                            displayTitle,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                              height: 1.3,
+                              fontFamily: 'Gilroy',
                             ),
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                  Obx(() => Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(imageList.length, (index) {
-                          bool isSelected = controller.selectedImage.value == index;
-                          return Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isSelected ? const Color(0xff22B241) : Colors.grey.withOpacity(0.3),
-                            ),
-                          );
-                        }),
-                      )),
-                  const Divider(height: 20, thickness: 1, color: Color(0xFFF0F0F0)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // const SizedBox(height: 16),
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                            height: 1.3,
+                          const SizedBox(height: 12),
+
+                          // Price
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${_fmt(displayPrice)} TMT',
+                                style: const TextStyle(
+                                  color: Color(0xff22B241),
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900,
+                                  fontFamily: 'Gilroy',
+                                ),
+                              ),
+                              if (displayOldPrice != null && displayOldPrice > displayPrice) ...[
+                                const SizedBox(width: 10),
+                                Text(
+                                  '${_fmt(displayOldPrice)} TMT',
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 15,
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                ),
+                              ],
+                              if (discountPct != null && discountPct > 0) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '-${discountPct.toInt()}%',
+                                    style: TextStyle(
+                                      color: Colors.red.shade600,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        _buildDetailRow('product_code'.tr, data['code'] as String),
-                        const SizedBox(height: 10),
-                        _buildDetailRow('product_id'.tr, data['id'] as String),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Text('seller'.tr, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                            const SizedBox(width: 8),
-                            Text(
-                              data['seller'] as String,
-                              style: const TextStyle(fontSize: 13, color: Color(0xff22B241), fontWeight: FontWeight.w500),
+                          const SizedBox(height: 24),
+
+                          // Description
+                          Text(
+                            'description'.tr,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Gilroy',
                             ),
-                            const SizedBox(width: 4),
-                            const Icon(Icons.arrow_forward_ios, color: Color(0xff22B241), size: 12),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        Text('description'.tr, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Gilroy')),
-                        const SizedBox(height: 12),
-                        Text(
-                          data['description'] as String,
-                          style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.7), height: 1.5),
-                        ),
-                        const SizedBox(height: 32),
-                        Text('product_features'.tr, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Gilroy')),
-                        const SizedBox(height: 16),
-                        _buildSpecItem(HugeIcons.strokeRoundedWaterEnergy, specs[0][0] as String, specs[0][1] as String),
-                        _buildSpecItem(HugeIcons.strokeRoundedDroplet, specs[1][0] as String, specs[1][1] as String),
-                        _buildSpecItem(HugeIcons.strokeRoundedSun01, specs[2][0] as String, specs[2][1] as String),
-                        const SizedBox(height: 40),
-                      ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            _localizedDescription.isNotEmpty ? _localizedDescription : 'no_description'.tr,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.black.withOpacity(0.65),
+                              height: 1.6,
+                            ),
+                          ),
+                          const SizedBox(height: 40),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          _buildBottomBar(),
-        ],
-      ),
+
+            // Bottom bar
+            _buildBottomBar(displayTitle, displayPrice),
+          ],
+        );
+      }),
     );
   }
 
-  void _showFullScreenImage(List<String> imageList, int initialIndex) {
+  String _fmt(double v) => v == v.truncateToDouble() ? v.toInt().toString() : v.toString();
+
+  AppBar _buildAppBar() {
+    return AppBar(
+      scrolledUnderElevation: 0.0,
+      backgroundColor: Colors.white,
+      elevation: 0,
+      leading: IconButton(
+        icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, color: Color(0xff22B241)),
+        onPressed: () => Get.back(),
+      ),
+      actions: [
+        Obx(() {
+          final favCtrl = Get.find<FavoritesController>();
+          final isFav = favCtrl.isFavorited(widget.productId, widget.title);
+          return IconButton(
+            onPressed: () {
+              final p = _ctrl.product.value;
+              favCtrl.toggleFavorite({
+                'id': widget.productId,
+                'title': p?.localizedName ?? widget.title,
+                'imageUrl': p?.image ?? widget.imageUrl,
+                'price': p?.price ?? widget.price,
+              });
+              if (!isFav) AppDialogs.showAddedToFavorites();
+            },
+            icon: isFav
+                ? const Icon(Icons.favorite, color: Colors.red)
+                : const HugeIcon(
+                    icon: HugeIcons.strokeRoundedFavourite,
+                    color: Color(0xff22B241),
+                  ),
+          );
+        }),
+        IconButton(
+          onPressed: () {
+            final p = _ctrl.product.value;
+            Share.share('${p?.localizedName ?? widget.title}\n${p?.image ?? widget.imageUrl}');
+          },
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedShare01, color: Color(0xff22B241)),
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  Widget _buildImage(String url) {
+    if (url.startsWith('assets')) {
+      return Image.asset(url, fit: BoxFit.contain);
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+    );
+  }
+
+  void _openFullscreen(List<String> imgs, int initialIndex) {
+    final fsCtrl = PageController(initialPage: initialIndex);
+    final currentIdx = initialIndex.obs;
     Get.to(
       () => Scaffold(
         backgroundColor: Colors.black,
@@ -257,29 +343,28 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
           elevation: 0,
           leading: IconButton(
             onPressed: () => Get.back(),
-            icon: const Icon(Icons.close, color: Colors.white, size: 30),
+            icon: const Icon(Icons.close, color: Colors.white, size: 28),
           ),
-        ),
-        body: Center(
-          child: InteractiveViewer(
-            minScale: 0.5,
-            maxScale: 5.0,
-            child: imageList[initialIndex].startsWith('assets')
-                ? Image.asset(
-                    imageList[initialIndex],
-                    fit: BoxFit.contain,
-                  )
-                : Image.network(
-                    imageList[initialIndex],
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(
-                        Icons.broken_image,
-                        size: 80,
-                        color: Colors.grey,
-                      );
-                    },
+          actions: [
+            Obx(() => Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Center(
+                    child: Text(
+                      '${currentIdx.value + 1} / ${imgs.length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
                   ),
+                )),
+          ],
+        ),
+        body: PageView.builder(
+          controller: fsCtrl,
+          itemCount: imgs.length,
+          onPageChanged: (i) => currentIdx.value = i,
+          itemBuilder: (_, index) => InteractiveViewer(
+            minScale: 0.8,
+            maxScale: 5.0,
+            child: Center(child: _buildImage(imgs[index])),
           ),
         ),
       ),
@@ -287,83 +372,138 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
     );
   }
 
-  Widget _buildSpecItem(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              HugeIcon(icon: icon, color: Colors.grey, size: 20),
-              const SizedBox(width: 12),
-              Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-            ],
-          ),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Row(
-      children: [
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-        const SizedBox(width: 8),
-        Text(value, style: const TextStyle(fontSize: 13, color: Colors.black87, fontWeight: FontWeight.w500)),
-      ],
-    );
-  }
-
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(String title, double price) {
     return Container(
-      width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, -4),
           ),
         ],
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Row(
-            children: [
-              Text(
-                '${price.toStringAsFixed(0)} TMT',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xff22B241),
-                ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    AppDialogs.showQuickOrderDialog({
-                      'title': title,
-                      'imageUrl': imageUrl,
-                      'price': price,
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff22B241),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Obx(() {
+            final qty = _cartCtrl.getQuantity(widget.productId, title);
+            if (qty > 0) {
+              return Row(
+                children: [
+                  Text(
+                    '${_fmt(price)} TMT',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xff22B241),
+                      fontFamily: 'Gilroy',
+                    ),
                   ),
-                  child: Text('order_now'.tr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _CartCounter(
+                      quantity: qty,
+                      onDecrement: () => _cartCtrl.changeQuantityByProduct(widget.productId, title, -1),
+                      onIncrement: () => _cartCtrl.changeQuantityByProduct(widget.productId, title, 1),
+                    ),
+                  ),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Text(
+                  '${_fmt(price)} TMT',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xff22B241),
+                    fontFamily: 'Gilroy',
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final p = _ctrl.product.value;
+                      _cartCtrl.addOrIncrement({
+                        'id': widget.productId,
+                        'title': title,
+                        'imageUrl': p?.image ?? widget.imageUrl,
+                        'price': price,
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff22B241),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text(
+                      'add_to_cart'.tr,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'Gilroy'),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
         ),
+      ),
+    );
+  }
+}
+
+class _CartCounter extends StatelessWidget {
+  final int quantity;
+  final VoidCallback onDecrement;
+  final VoidCallback onIncrement;
+
+  const _CartCounter({
+    required this.quantity,
+    required this.onDecrement,
+    required this.onIncrement,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 50,
+      decoration: BoxDecoration(
+        color: const Color(0xff22B241),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          GestureDetector(
+            onTap: onDecrement,
+            child: const SizedBox(
+              width: 50,
+              height: 50,
+              child: Center(child: Icon(Icons.remove, color: Colors.white, size: 22)),
+            ),
+          ),
+          Text(
+            '$quantity',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              fontFamily: 'Gilroy',
+            ),
+          ),
+          GestureDetector(
+            onTap: onIncrement,
+            child: const SizedBox(
+              width: 50,
+              height: 50,
+              child: Center(child: Icon(Icons.add, color: Colors.white, size: 22)),
+            ),
+          ),
+        ],
       ),
     );
   }

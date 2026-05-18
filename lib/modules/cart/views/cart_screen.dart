@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
-import 'package:atlas/modules/orders/controllers/order_controller.dart';
-import 'package:atlas/widgets/app_dialogs.dart';
-import 'package:atlas/widgets/app_loading_state.dart';
+import 'package:atlas/modules/orders/views/order_screen.dart';
 
 class CartScreen extends GetView<CartController> {
   const CartScreen({super.key});
@@ -14,19 +12,15 @@ class CartScreen extends GetView<CartController> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
       appBar: AppBar(
-        title: const Text('Sebet',
-            style:
-                TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Gilroy')),
+        title: Text('cart'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Gilroy')),
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: false,
         actions: [
           Obx(() => controller.cartItems.isNotEmpty
               ? IconButton(
                   onPressed: () => _showDeleteConfirmation(context, -1),
-                  icon: const HugeIcon(
-                      icon: HugeIcons.strokeRoundedDelete01,
-                      color: Colors.red,
-                      size: 20),
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, color: Colors.red, size: 20),
                 )
               : const SizedBox()),
         ],
@@ -72,8 +66,8 @@ class CartScreen extends GetView<CartController> {
             ),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Sebediňiz boş',
+          Text(
+            'empty_cart'.tr,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -81,164 +75,269 @@ class CartScreen extends GetView<CartController> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Haryt goşuň we sargyt ediň!',
+          Text(
+            'add_products'.tr,
             style: TextStyle(color: Colors.grey, fontSize: 16),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCartItem(
-      BuildContext context, int index, Map<String, dynamic> item) {
-    final title = item['title'] ?? 'Nätanyş haryt';
+  Widget _buildCartItem(BuildContext context, int index, Map<String, dynamic> item) {
+    final title = item['title'] ?? 'unknown_product'.tr;
     final image = item['imageUrl'] ?? '';
-    final price = item['price'] ?? 0.0;
+    final price = (item['price'] is int ? (item['price'] as int).toDouble() : (item['price'] ?? 0.0) as double);
     final quantity = item['quantity'] ?? 1;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              color: const Color(0xFFF9F9F9),
-              child: image.startsWith('assets')
-                  ? Image.asset(image,
-                      height: 80,
-                      width: 80,
-                      fit: BoxFit.contain,
-                      errorBuilder: (c, e, s) =>
-                          const Icon(Icons.image, color: Colors.grey))
-                  : Image.network(image,
-                      height: 80,
-                      width: 80,
-                      fit: BoxFit.contain,
-                      errorBuilder: (c, e, s) =>
-                          const Icon(Icons.image, color: Colors.grey)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image
+            Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F8F5),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: image.startsWith('assets')
+                    ? Image.asset(image, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.image, color: Colors.grey))
+                    : Image.network(image, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.image, color: Colors.grey)),
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+            const SizedBox(width: 14),
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
-                            fontFamily: 'Gilroy'),
+                            fontFamily: 'Gilroy',
+                            color: Color(0xFF1A1A1A),
+                            height: 1.35,
+                          ),
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      constraints: const BoxConstraints(),
-                      padding: EdgeInsets.zero,
-                      onPressed: () => _showDeleteConfirmation(context, index),
-                      icon: const HugeIcon(
-                          icon: HugeIcons.strokeRoundedDelete01,
-                          color: Colors.red,
-                          size: 18),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${(price is int ? price.toDouble() : price as double).toStringAsFixed(0)} TMT',
-                  style: const TextStyle(
-                    color: Color(0xff22B241),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F5F5),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildQtyBtn(
-                          Icons.remove, () => controller.updateQuantity(index, -1)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text('$quantity',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 14)),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => _showDeleteConfirmation(context, index),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Center(
+                            child: HugeIcon(
+                              icon: HugeIcons.strokeRoundedDelete01,
+                              color: Colors.red,
+                              size: 16,
+                            ),
+                          ),
+                        ),
                       ),
-                      _buildQtyBtn(
-                          Icons.add, () => controller.updateQuantity(index, 1)),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  // Price row + qty counter
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Unit price and total
+                      Expanded(
+                        child: Text(
+                          '${price.toStringAsFixed(0)} TMT',
+                          style: const TextStyle(
+                            color: Color(0xFF8E8E93),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      // Qty counter pill
+                      Container(
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF22B241),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildQtyBtn(Icons.remove, () => controller.updateQuantity(index, -1)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              child: Text(
+                                '$quantity',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                  fontFamily: 'Gilroy',
+                                ),
+                              ),
+                            ),
+                            _buildQtyBtn(Icons.add, () => controller.updateQuantity(index, 1)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildQtyBtn(IconData icon, VoidCallback onTap) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Icon(icon, size: 18, color: Colors.black87),
+      child: SizedBox(
+        width: 36,
+        height: 36,
+        child: Center(
+          child: Icon(icon, size: 18, color: Colors.white),
+        ),
       ),
     );
   }
 
   void _showDeleteConfirmation(BuildContext context, int index) {
+    final isClearAll = index == -1;
     Get.dialog(
-      AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(index == -1 ? 'Sebedi arassalamak' : 'Harydy aýyrmak'),
-        content: Text(index == -1
-            ? 'Siz hakykatdan hem sebedi doly arassalamak isleýärsiňizmi?'
-            : 'Siz bu harydy sebetden aýyrmak isleýärsiňizmi?'),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Ýok', style: TextStyle(color: Colors.grey)),
+      Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
           ),
-          TextButton(
-            onPressed: () {
-              if (index == -1) {
-                controller.clearCart();
-              } else {
-                controller.removeItem(index);
-              }
-              Get.back();
-            },
-            child: const Text('Hawa',
-                style:
-                    TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: HugeIcon(
+                    icon: HugeIcons.strokeRoundedDelete01,
+                    color: Colors.red,
+                    size: 26,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                isClearAll ? 'clear_cart'.tr : 'remove_product'.tr,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Gilroy',
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isClearAll ? 'clear_cart_confirm'.tr : 'remove_product_confirm'.tr,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF8E8E93),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: Get.back,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Color(0xFFE0E0E0)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text(
+                        'cancel'.tr,
+                        style: const TextStyle(
+                          color: Color(0xFF66707A),
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Gilroy',
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (isClearAll) {
+                          controller.clearCart();
+                        } else {
+                          controller.removeItem(index);
+                        }
+                        Get.back();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text(
+                        'yes'.tr,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Gilroy',
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -249,10 +348,7 @@ class CartScreen extends GetView<CartController> {
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5)),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5)),
         ],
       ),
       child: SafeArea(
@@ -262,248 +358,29 @@ class CartScreen extends GetView<CartController> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Jemi:',
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'Gilroy')),
-                Obx(() => Text(
-                    '${controller.totalPrice.toStringAsFixed(0)} TMT',
-                    style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xff22B241)))),
+                Text('total'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, fontFamily: 'Gilroy')),
+                Obx(() => Text('${controller.totalPrice.toStringAsFixed(0)} TMT', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xff22B241)))),
               ],
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => _showOrderDialog(context),
+              onPressed: () {
+                if (controller.cartItems.isEmpty) return;
+                Get.to(() => OrderScreen(
+                      cartItems: controller.cartItems.toList(),
+                      total: controller.totalPrice,
+                    ));
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff22B241),
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 56),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 elevation: 0,
               ),
-              child: const Text('Sargyt etmek',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Gilroy')),
+              child: Text('order_now'.tr, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Gilroy')),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _showOrderDialog(BuildContext context) {
-    if (controller.cartItems.isEmpty) return;
-
-    final phoneController = TextEditingController();
-    final addressController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    final orderedCount = controller.cartItems.fold<int>(
-      0,
-      (sum, item) => sum + ((item['quantity'] ?? 1) as int),
-    );
-    final orderedTotal = controller.totalPrice;
-
-    Get.dialog(
-      Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color(0x1422B241),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const HugeIcon(
-                        icon: HugeIcons.strokeRoundedCheckmarkCircle02,
-                        color: Color(0xff22B241),
-                        size: 26,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Sargydy tassyklamak',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          fontFamily: 'Gilroy',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F8F6),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '$orderedCount haryt • ${orderedTotal.toStringAsFixed(0)} TMT',
-                    style: const TextStyle(
-                      color: Color(0xff22B241),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'Gilroy',
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    hintText: '+993 61 xxxxxx',
-                    labelText: 'Telefon belgisi',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xff22B241)),
-                    ),
-                    isDense: true,
-                  ),
-                  validator: (v) =>
-                      (v == null || v.isEmpty) ? 'Telefon girizi' : null,
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  controller: addressController,
-                  decoration: InputDecoration(
-                    hintText: 'Eltip bermek salgysy',
-                    labelText: 'Salgy',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xff22B241)),
-                    ),
-                    isDense: true,
-                  ),
-                  validator: (v) =>
-                      (v == null || v.isEmpty) ? 'Salgy girizi' : null,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: Get.back,
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFDBE2DC)),
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Ýok',
-                          style: TextStyle(
-                            color: Color(0xFF66707A),
-                            fontWeight: FontWeight.w700,
-                            fontFamily: 'Gilroy',
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Obx(() {
-                        final orderController = Get.find<OrderController>();
-                        return ElevatedButton(
-                          onPressed: orderController.isPlacingOrder.value
-                              ? null
-                              : () async {
-                                  if (!formKey.currentState!.validate()) return;
-                                  final success =
-                                      await orderController.placeOrder(
-                                    phoneNumber: phoneController.text,
-                                    address: addressController.text,
-                                    cartItems: controller.cartItems.toList(),
-                                  );
-                                  Get.back();
-                                  if (success) {
-                                    controller.clearCart();
-                                    AppDialogs.showTopSuccessSnackbar(
-                                      title: 'Sargyt üstünlikli ugradyldy',
-                                      subtitle:
-                                          '$orderedCount haryt • ${orderedTotal.toStringAsFixed(0)} TMT',
-                                      icon: HugeIcons
-                                          .strokeRoundedShoppingBag01,
-                                    );
-                                  } else {
-                                    Get.snackbar(
-                                      'Ýalňyşlyk',
-                                      'Sargyt ugradylmady. Täzeden synanyşyň.',
-                                      backgroundColor: Colors.red.shade50,
-                                      colorText: Colors.red,
-                                    );
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xff22B241),
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: orderController.isPlacingOrder.value
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: AppLoadingState(size: 20),
-                                )
-                              : const Text(
-                                  'Hawa, sargyt et',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontFamily: 'Gilroy',
-                                  ),
-                                ),
-                        );
-                      }),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );

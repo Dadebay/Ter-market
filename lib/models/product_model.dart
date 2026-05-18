@@ -18,6 +18,12 @@ class ProductModel {
   final String? location;
   final bool isNew;
 
+  final List<String> allImages;
+  final String? descriptionTk;
+  final String? descriptionRu;
+  final String? categoryName;
+  final String? subCategoryName;
+
   String get localizedName {
     try {
       final lang = Get.find<LanguageController>().selectedLanguage.value;
@@ -43,6 +49,11 @@ class ProductModel {
     this.storeName,
     this.location,
     this.isNew = false,
+    this.allImages = const [],
+    this.descriptionTk,
+    this.descriptionRu,
+    this.categoryName,
+    this.subCategoryName,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -61,13 +72,18 @@ class ProductModel {
       nameTk: nameTk,
       nameRu: nameRu,
       image: _parseFirstImage(json),
+      allImages: _parseAllImages(json),
       price: parseDouble(json['discounted_price'] ?? json['price']),
-      oldPrice: (json['discounted_price'] != null && json['price'] != null) ? parseDouble(json['price']) : null,
+      oldPrice: (json['discounted_price'] != null && json['price'] != null && parseDouble(json['discounted_price']) != parseDouble(json['price'])) ? parseDouble(json['price']) : null,
       discount: json['skidka'] != null ? parseDouble(json['skidka']) : null,
       rating: parseDouble(json['rating']),
       categoryId: json['category'] is int ? json['category'] as int : (json['category']?['id'] as int?),
       subCategoryId: json['sub_category'] is int ? json['sub_category'] as int : (json['sub_category']?['id'] as int?),
       description: (json['description_tk'] ?? json['description_ru'] ?? json['description']) as String?,
+      descriptionTk: json['description_tk'] as String?,
+      descriptionRu: json['description_ru'] as String?,
+      categoryName: json['category'] is Map ? (json['category']['title_tk'] ?? json['category']['title_ru']) as String? : null,
+      subCategoryName: json['sub_category'] is Map ? (json['sub_category']['title_tk'] ?? json['sub_category']['title_ru']) as String? : null,
       storeName: json['store_name'] as String?,
       location: json['location'] as String?,
       isNew: (json['is_new'] as bool?) ?? false,
@@ -79,9 +95,25 @@ class ProductModel {
     if (images is List && images.isNotEmpty) {
       final first = images.first;
       if (first is String) return first;
-      if (first is Map) return first['img'] as String? ?? first['img'] as String?;
+      if (first is Map) return (first['img'] ?? first['image']) as String?;
     }
     return json['image'] as String?;
+  }
+
+  static List<String> _parseAllImages(Map<String, dynamic> json) {
+    final images = json['images'];
+    if (images is List) {
+      return images
+          .map<String>((e) {
+            if (e is String) return e;
+            if (e is Map) return (e['img'] ?? e['image'] ?? '') as String;
+            return '';
+          })
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+    final single = json['image'] as String?;
+    return single != null ? [single] : [];
   }
 }
 

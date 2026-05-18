@@ -9,6 +9,11 @@ class CategoryController extends GetxController {
   var isLoading = true.obs;
   var hasError = false.obs;
 
+  // Accordion state
+  var expandedIds = <int>[].obs;
+  var subCategoriesMap = <int, List<SubCategoryModel>>{}.obs;
+  var loadingSubCatIds = <int>[].obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -24,6 +29,27 @@ class CategoryController extends GetxController {
       hasError.value = true;
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<void> toggleCategory(int categoryId) async {
+    if (expandedIds.contains(categoryId)) {
+      expandedIds.remove(categoryId);
+      return;
+    }
+    expandedIds.add(categoryId);
+    if (subCategoriesMap.containsKey(categoryId)) return;
+
+    loadingSubCatIds.add(categoryId);
+    try {
+      final subs = await _api.getSubCategories(categoryId: categoryId);
+      subCategoriesMap[categoryId] = subs;
+      subCategoriesMap.refresh();
+    } catch (_) {
+      subCategoriesMap[categoryId] = [];
+      subCategoriesMap.refresh();
+    } finally {
+      loadingSubCatIds.remove(categoryId);
     }
   }
 }

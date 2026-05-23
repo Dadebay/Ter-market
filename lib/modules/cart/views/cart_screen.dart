@@ -1,5 +1,7 @@
+import 'package:atlas/themes/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:atlas/utils/nav.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/modules/orders/views/order_screen.dart';
@@ -12,6 +14,7 @@ class CartScreen extends GetView<CartController> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
       appBar: AppBar(
+        scrolledUnderElevation: 0.0,
         title: Text('cart'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Gilroy')),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -188,7 +191,7 @@ class CartScreen extends GetView<CartController> {
                       Container(
                         height: 36,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF22B241),
+                          color: AppColors.primary,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -290,14 +293,21 @@ class CartScreen extends GetView<CartController> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: Get.back,
+                      onPressed: () {
+                        if (isClearAll) {
+                          controller.clearCart();
+                        } else {
+                          controller.removeItem(index);
+                        }
+                        Navigator.of(context).pop();
+                      },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         side: const BorderSide(color: Color(0xFFE0E0E0)),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       child: Text(
-                        'cancel'.tr,
+                        'yes'.tr,
                         style: const TextStyle(
                           color: Color(0xFF66707A),
                           fontWeight: FontWeight.w600,
@@ -310,12 +320,7 @@ class CartScreen extends GetView<CartController> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        if (isClearAll) {
-                          controller.clearCart();
-                        } else {
-                          controller.removeItem(index);
-                        }
-                        Get.back();
+                        Navigator.of(context).pop();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
@@ -324,7 +329,7 @@ class CartScreen extends GetView<CartController> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       child: Text(
-                        'yes'.tr,
+                        'cancel'.tr,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -358,21 +363,23 @@ class CartScreen extends GetView<CartController> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('total'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, fontFamily: 'Gilroy')),
-                Obx(() => Text('${controller.totalPrice.toStringAsFixed(0)} TMT', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xff22B241)))),
+                Text('total'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.grey, fontFamily: 'Gilroy')),
+                Obx(() => Text('${controller.totalPrice.toStringAsFixed(0)} TMT', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.primary))),
               ],
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
                 if (controller.cartItems.isEmpty) return;
-                Get.to(() => OrderScreen(
-                      cartItems: controller.cartItems.toList(),
-                      total: controller.totalPrice,
-                    ));
+                Nav.push(
+                    context,
+                    () => OrderScreen(
+                          cartItems: controller.cartItems.toList(),
+                          total: controller.totalPrice,
+                        ));
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xff22B241),
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 56),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

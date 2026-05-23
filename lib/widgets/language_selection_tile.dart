@@ -20,8 +20,7 @@ class LanguageSelectionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final LanguageController languageController =
-        Get.find<LanguageController>();
+    final LanguageController languageController = Get.find<LanguageController>();
     return Obx(() {
       bool isSelected = languageController.selectedLanguage.value == code;
       return Padding(
@@ -29,19 +28,16 @@ class LanguageSelectionTile extends StatelessWidget {
         child: InkWell(
           onTap: () {
             languageController.changeLanguage(code);
-            if (goBack) Get.back();
+            if (goBack) Navigator.of(context).pop();
           },
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(0xFF22B241).withOpacity(0.05)
-                  : const Color(0xFFF9F9F9),
+              color: isSelected ? const Color(0xFF22B241).withOpacity(0.05) : const Color(0xFFF9F9F9),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color:
-                    isSelected ? const Color(0xFF22B241) : Colors.transparent,
+                color: isSelected ? const Color(0xFF22B241) : Colors.transparent,
                 width: 1,
               ),
             ),
@@ -62,11 +58,9 @@ class LanguageSelectionTile extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontSize: 15,
-                      fontWeight:
-                          isSelected ? FontWeight.w800 : FontWeight.w600,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                       fontFamily: 'Gilroy',
-                      color:
-                          isSelected ? const Color(0xFF22B241) : Colors.black87,
+                      color: isSelected ? const Color(0xFF22B241) : Colors.black87,
                     ),
                   ),
                 ),

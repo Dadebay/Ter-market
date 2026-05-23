@@ -56,7 +56,7 @@ class _AboutPageState extends State<AboutPage> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          onPressed: () => Get.back(),
+          onPressed: () => Navigator.of(context).pop(),
           icon: const HugeIcon(
             icon: HugeIcons.strokeRoundedArrowLeft01,
             size: 24,

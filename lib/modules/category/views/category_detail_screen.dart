@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:atlas/utils/nav.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/core/api/api_service.dart';
+import 'package:atlas/models/brand_model.dart';
 import 'package:atlas/models/category_model.dart';
 import 'package:atlas/models/product_model.dart';
 import 'package:atlas/themes/colors.dart';
@@ -16,6 +20,7 @@ enum _SortOption { none, newest, priceLow, priceHigh, discount }
 
 class CategoryDetailScreen extends StatefulWidget {
   final int? categoryId;
+  final int? brandId;
   final String categoryName;
   final int? initialSubCategoryId;
   final String? initialSubCategoryName;
@@ -26,6 +31,7 @@ class CategoryDetailScreen extends StatefulWidget {
   const CategoryDetailScreen({
     super.key,
     this.categoryId,
+    this.brandId,
     required this.categoryName,
     this.initialSubCategoryId,
     this.initialSubCategoryName,
@@ -50,9 +56,20 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
   int? _selectedSubCatId;
   _SortOption _activeSortOption = _SortOption.none;
+  String _searchQuery = '';
+  bool _showSearchBar = false;
+  final _totalProductCount = 0.obs;
+  Timer? _debounceTimer;
+  final _searchInputCtrl = TextEditingController();
   int _offset = 0;
   static const int _limit = 10;
   late ScrollController _scrollCtrl;
+
+  // Brand filter
+  List<BrandModel> _brands = [];
+  int? _selectedBrandId;
+  String? _selectedBrandName;
+  bool _isBrandsLoading = false;
 
   @override
   void initState() {
@@ -63,6 +80,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _searchInputCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -142,6 +161,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   Future<void> _fetchProducts({
     int? categoryId,
     int? subCategoryId,
+    int? brandId,
     _SortOption? sort,
   }) async {
     _offset = 0;
@@ -154,12 +174,15 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       final result = await _api.getProducts(
         categoryId: categoryId,
         subCategoryId: subCategoryId,
+        brandId: brandId ?? _selectedBrandId ?? widget.brandId,
         ordering: _computeOrdering(effectiveSort),
         discount: _computeDiscount(effectiveSort),
+        search: _searchQuery.isEmpty ? null : _searchQuery,
         limit: _limit,
         offset: 0,
       );
       _products.value = result.results;
+      _totalProductCount.value = result.count;
       _hasMore.value = result.count > result.results.length;
     } catch (_) {
       _hasError.value = true;
@@ -177,8 +200,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       final result = await _api.getProducts(
         categoryId: widget.categoryId,
         subCategoryId: _selectedSubCatId,
+        brandId: _selectedBrandId ?? widget.brandId,
         ordering: _computeOrdering(effectiveSort),
         discount: _computeDiscount(effectiveSort),
+        search: _searchQuery.isEmpty ? null : _searchQuery,
         limit: _limit,
         offset: _offset,
       );
@@ -191,9 +216,194 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     }
   }
 
+  void _onSearchInputChanged(String value) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      setState(() => _searchQuery = value.trim());
+      _fetchProducts(
+        categoryId: widget.categoryId,
+        subCategoryId: _selectedSubCatId,
+      );
+    });
+  }
+
   void _selectSubCategory(int? id) {
     setState(() => _selectedSubCatId = id);
     _fetchProducts(categoryId: widget.categoryId, subCategoryId: id);
+  }
+
+  Future<void> _fetchBrands() async {
+    if (_brands.isNotEmpty || _isBrandsLoading) return;
+    setState(() => _isBrandsLoading = true);
+    try {
+      final result = await _api.getBrands();
+      setState(() => _brands = result);
+    } catch (_) {
+    } finally {
+      setState(() => _isBrandsLoading = false);
+    }
+  }
+
+  void _showBrandSheet() async {
+    await _fetchBrands();
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.65,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDDE2DF),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'brands'.tr,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        fontFamily: 'Gilroy',
+                      ),
+                    ),
+                    if (_selectedBrandId != null)
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedBrandId = null;
+                            _selectedBrandName = null;
+                          });
+                          Navigator.of(ctx).pop();
+                          _fetchProducts(
+                            categoryId: widget.categoryId,
+                            subCategoryId: _selectedSubCatId,
+                          );
+                        },
+                        child: Text(
+                          'reset'.tr,
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontFamily: 'Gilroy',
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (_isBrandsLoading)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+                    ),
+                  )
+                else if (_brands.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: Text(
+                        'Brend tapylmady',
+                        style: TextStyle(color: Colors.grey, fontFamily: 'Gilroy'),
+                      ),
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: _brands.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (ctx, i) {
+                        final brand = _brands[i];
+                        final isSelected = _selectedBrandId == brand.id;
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedBrandId = brand.id;
+                              _selectedBrandName = brand.localizedName;
+                            });
+                            Navigator.of(ctx).pop();
+                            _fetchProducts(
+                              categoryId: widget.categoryId,
+                              subCategoryId: _selectedSubCatId,
+                              brandId: brand.id,
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+                            child: Row(
+                              children: [
+                                if (brand.icon != null && brand.icon!.isNotEmpty)
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      brand.icon!,
+                                      width: 36,
+                                      height: 36,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => const SizedBox(width: 36, height: 36),
+                                    ),
+                                  )
+                                else
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF5F5F5),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.storefront_outlined, color: Colors.grey, size: 18),
+                                  ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    brand.localizedName,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                      fontFamily: 'Gilroy',
+                                      color: isSelected ? AppColors.primary : const Color(0xFF1D1B20),
+                                    ),
+                                  ),
+                                ),
+                                if (isSelected) const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _showFilterSheet() {
@@ -291,7 +501,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     setState(() => _activeSortOption = tempSort);
-                    Get.back();
+                    Navigator.of(context).pop();
                     _fetchProducts(
                       categoryId: widget.categoryId,
                       subCategoryId: _selectedSubCatId,
@@ -325,8 +535,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hasActiveFilter = _activeSortOption != _SortOption.none;
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -335,7 +543,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.white,
         leading: IconButton(
-          onPressed: () => Get.back(),
+          onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(IconlyLight.arrow_left_circle, size: 20, color: Colors.black),
         ),
         title: widget.initialSubCategoryId != null
@@ -361,40 +569,33 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               ),
         centerTitle: true,
         actions: [
-          GestureDetector(
-            onTap: _showFilterSheet,
-            child: Container(
-              margin: const EdgeInsets.only(right: 8, top: 10, bottom: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  HugeIcon(
-                    icon: HugeIcons.strokeRoundedFilterHorizontal,
-                    color: hasActiveFilter ? const Color(0xff22B241) : Colors.black87,
-                    size: 22,
-                  ),
-                  if (hasActiveFilter)
-                    Positioned(
-                      top: -3,
-                      right: -3,
-                      child: Container(
-                        width: 9,
-                        height: 9,
-                        decoration: const BoxDecoration(
-                          color: Color(0xff22B241),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+          IconButton(
+            onPressed: () {
+              setState(() {
+                _showSearchBar = !_showSearchBar;
+                if (!_showSearchBar) {
+                  _searchInputCtrl.clear();
+                  if (_searchQuery.isNotEmpty) {
+                    _searchQuery = '';
+                    _fetchProducts(
+                      categoryId: widget.categoryId,
+                      subCategoryId: _selectedSubCatId,
+                    );
+                  }
+                }
+              });
+            },
+            icon: Icon(
+              _showSearchBar ? CupertinoIcons.xmark_circle : IconlyLight.search,
+              color: _showSearchBar ? AppColors.primary : Colors.black87,
+              size: 22,
             ),
           ),
         ],
       ),
       body: Column(
         children: [
+          if (_showSearchBar) _buildSearchBar(),
           // ── Subcategory chips (only when browsing a real category) ──
           if (widget.categoryId != null)
             Obx(() {
@@ -433,6 +634,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                 ),
               );
             }),
+          // ── Brand + Filter pill buttons ──
+          _buildFilterRow(),
           const Divider(height: 1, color: Color(0xFFEEEEEE)),
           // ── Products grid ──
           Expanded(
@@ -465,13 +668,15 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                           return ProductCard(
                             id: product.id.toString(),
                             title: product.localizedName,
+                            description: product.localizedDescription,
                             price: product.price,
                             oldPrice: product.oldPrice,
                             imageUrl: product.image ?? '',
                             storeName: product.storeName ?? 'Ter Market',
                             location: product.location ?? 'Aşgabat',
                             rating: product.rating,
-                            onTap: () => Get.to(
+                            onTap: () => Nav.push(
+                              context,
                               () => ProductDetailScreen(
                                 productId: product.id,
                                 title: product.localizedName,
@@ -487,9 +692,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                         },
                         childCount: _products.length,
                       ),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.64,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: MediaQuery.of(context).size.width >= 600 ? 4 : 2,
+                        childAspectRatio: MediaQuery.of(context).size.width >= 600 ? 0.72 : 0.66,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
                       ),
@@ -530,6 +735,177 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             }),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterRow() {
+    final hasBrand = _selectedBrandId != null;
+    final hasSort = _activeSortOption != _SortOption.none;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Row(
+        children: [
+          // Product count
+          Obx(() => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Jemi:',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey,
+                      fontFamily: 'Gilroy',
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '${_totalProductCount.value} sany haryt',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.black87,
+                      fontFamily: 'Gilroy',
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              )),
+          const SizedBox(width: 8),
+          // Brendler pill
+          Expanded(
+            child: GestureDetector(
+              onTap: _showBrandSheet,
+              child: Container(
+                height: 38,
+                decoration: BoxDecoration(
+                  color: hasBrand ? AppColors.primary : const Color(0xFFF2F4F3),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedStore01,
+                      color: hasBrand ? Colors.white : Colors.black54,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        hasBrand ? (_selectedBrandName ?? 'brands'.tr) : 'brands'.tr,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Gilroy',
+                          color: hasBrand ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                    ),
+                    if (hasBrand) ...[
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedBrandId = null;
+                            _selectedBrandName = null;
+                          });
+                          _fetchProducts(
+                            categoryId: widget.categoryId,
+                            subCategoryId: _selectedSubCatId,
+                          );
+                        },
+                        child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Süzgüç pill
+          Expanded(
+            child: GestureDetector(
+              onTap: _showFilterSheet,
+              child: Container(
+                height: 38,
+                decoration: BoxDecoration(
+                  color: hasSort ? AppColors.primary : const Color(0xFFF2F4F3),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedFilterHorizontal,
+                      color: hasSort ? Colors.white : Colors.black54,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'filter'.tr,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Gilroy',
+                        color: hasSort ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: TextField(
+        controller: _searchInputCtrl,
+        autofocus: true,
+        textInputAction: TextInputAction.search,
+        style: const TextStyle(
+          fontSize: 14,
+          fontFamily: 'Gilroy',
+          color: Colors.black,
+        ),
+        decoration: InputDecoration(
+          hintText: 'search_products'.tr,
+          hintStyle: TextStyle(
+            color: Colors.grey.shade400,
+            fontSize: 14,
+            fontFamily: 'Gilroy',
+          ),
+          prefixIcon: Icon(IconlyLight.search, color: Colors.grey.shade400, size: 20),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? GestureDetector(
+                  onTap: () {
+                    _searchInputCtrl.clear();
+                    setState(() => _searchQuery = '');
+                    _fetchProducts(
+                      categoryId: widget.categoryId,
+                      subCategoryId: _selectedSubCatId,
+                    );
+                  },
+                  child: Icon(Icons.close_rounded, size: 18, color: Colors.grey.shade400),
+                )
+              : null,
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        onChanged: _onSearchInputChanged,
       ),
     );
   }

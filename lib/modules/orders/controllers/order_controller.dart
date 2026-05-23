@@ -15,6 +15,18 @@ class OrderController extends GetxController {
   var paymentMethods = <PaymentMethod>[].obs;
   var isLoadingPayments = false.obs;
 
+  var deliveryTypes = <DeliveryType>[].obs;
+  var isLoadingDeliveryTypes = false.obs;
+
+  var deliveryTimes = <DeliveryTime>[].obs;
+  var isLoadingDeliveryTimes = false.obs;
+
+  var dialogNotices = <DialogNoticeModel>[].obs;
+  var isLoadingDialogs = false.obs;
+
+  var regions = <RegionModel>[].obs;
+  var isLoadingRegions = false.obs;
+
   String get deviceId {
     var id = _storage.read<String>('device_id');
     if (id == null) {
@@ -29,6 +41,21 @@ class OrderController extends GetxController {
     super.onInit();
     fetchMyOrders();
     fetchPaymentMethods();
+    fetchDeliveryTypes();
+    fetchDeliveryTimes();
+    fetchDialogs();
+    fetchRegions();
+  }
+
+  Future<void> fetchDialogs() async {
+    isLoadingDialogs.value = true;
+    try {
+      dialogNotices.value = await _api.getDialogs();
+    } catch (_) {
+      // silently fail
+    } finally {
+      isLoadingDialogs.value = false;
+    }
   }
 
   Future<void> fetchPaymentMethods() async {
@@ -39,6 +66,39 @@ class OrderController extends GetxController {
       // silently fail - will retry when order screen opens
     } finally {
       isLoadingPayments.value = false;
+    }
+  }
+
+  Future<void> fetchDeliveryTypes() async {
+    isLoadingDeliveryTypes.value = true;
+    try {
+      deliveryTypes.value = await _api.getDeliveryTypes();
+    } catch (_) {
+      // silently fail
+    } finally {
+      isLoadingDeliveryTypes.value = false;
+    }
+  }
+
+  Future<void> fetchDeliveryTimes() async {
+    isLoadingDeliveryTimes.value = true;
+    try {
+      deliveryTimes.value = await _api.getDeliveryTimes();
+    } catch (_) {
+      // silently fail
+    } finally {
+      isLoadingDeliveryTimes.value = false;
+    }
+  }
+
+  Future<void> fetchRegions() async {
+    isLoadingRegions.value = true;
+    try {
+      regions.value = await _api.getRegions();
+    } catch (_) {
+      // silently fail
+    } finally {
+      isLoadingRegions.value = false;
     }
   }
 
@@ -58,6 +118,9 @@ class OrderController extends GetxController {
     required String phoneNumber,
     required String address,
     required String paymentStatus,
+    int? deliveryTypeId,
+    int? deliveryTimeId,
+    int? regionId,
     required List<Map<String, dynamic>> cartItems,
   }) async {
     isPlacingOrder.value = true;
@@ -67,6 +130,9 @@ class OrderController extends GetxController {
         phoneNumber: phoneNumber,
         address: address,
         paymentStatus: paymentStatus,
+        deliveryTypeId: deliveryTypeId,
+        deliveryTimeId: deliveryTimeId,
+        regionId: regionId,
         items: cartItems.map((item) {
           final productId = item['id'];
           return OrderItemRequest(

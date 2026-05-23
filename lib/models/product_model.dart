@@ -33,6 +33,15 @@ class ProductModel {
     }
   }
 
+  String get localizedDescription {
+    try {
+      final lang = Get.find<LanguageController>().selectedLanguage.value;
+      return lang == 'ru' ? (descriptionRu ?? description ?? '') : (descriptionTk ?? description ?? '');
+    } catch (_) {
+      return description ?? '';
+    }
+  }
+
   const ProductModel({
     required this.id,
     required this.name,

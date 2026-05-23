@@ -1,3 +1,4 @@
+import 'package:atlas/themes/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -69,7 +70,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             color: Colors.black87,
             size: 22,
           ),
-          onPressed: () => Get.back(),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
           'my_orders'.tr,
@@ -85,7 +86,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         if (_isLoading.value) {
           return const Center(
             child: CircularProgressIndicator(
-              color: Color(0xFF22B241),
+              color: AppColors.accent,
               strokeWidth: 2,
             ),
           );
@@ -114,7 +115,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                 ElevatedButton(
                   onPressed: _fetchOrders,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF22B241),
+                    backgroundColor: AppColors.accent,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -145,12 +146,12 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                 Container(
                   padding: const EdgeInsets.all(28),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF22B241).withValues(alpha: 0.08),
+                    color: AppColors.accent.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),
                   child: const HugeIcon(
                     icon: HugeIcons.strokeRoundedShoppingCart01,
-                    color: Color(0xFF22B241),
+                    color: AppColors.accent,
                     size: 52,
                   ),
                 ),
@@ -180,7 +181,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           );
         }
         return RefreshIndicator(
-          color: const Color(0xFF22B241),
+          color: AppColors.accent,
           onRefresh: _fetchOrders,
           child: ListView.separated(
             padding: const EdgeInsets.all(16),
@@ -232,15 +233,15 @@ class _OrderCard extends StatelessWidget {
           // ── Header ──────────────────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF0FBF3),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
                 const HugeIcon(
                   icon: HugeIcons.strokeRoundedShoppingBag01,
-                  color: Color(0xFF22B241),
+                  color: AppColors.primary,
                   size: 20,
                 ),
                 const SizedBox(width: 10),
@@ -251,7 +252,7 @@ class _OrderCard extends StatelessWidget {
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                       fontFamily: 'Gilroy',
-                      color: Color(0xFF1D1B20),
+                      color: AppColors.primary,
                     ),
                   ),
                 ),
@@ -287,9 +288,97 @@ class _OrderCard extends StatelessWidget {
             child: Divider(height: 24, thickness: 0.8),
           ),
 
+          // ── Quick info ───────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Column(
+              children: [
+                if (order.orderStatus != null)
+                  Row(
+                    children: [
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedInformationCircle,
+                        color: Colors.black45,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${'order_status'.tr}: ',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Gilroy',
+                          color: Colors.black45,
+                        ),
+                      ),
+                      _StatusBadge(status: order.orderStatus!),
+                    ],
+                  ),
+                if (order.regionDetail != null) ...[
+                  if (order.orderStatus != null) const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: HugeIcons.strokeRoundedLocationAdd01,
+                    label: 'region'.tr,
+                    value: '${order.regionDetail!.name} (+${order.regionDetail!.price.toStringAsFixed(0)} TMT)',
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // const Padding(
+          //   padding: EdgeInsets.symmetric(horizontal: 16),
+          //   child: Divider(height: 1, thickness: 0.8),
+          // ),
+
+          // ── Details Section (Always visible) ────────────
+          Container(
+            padding: const EdgeInsets.all(16).copyWith(top: 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (order.deliveryTypeDetail != null)
+                  _InfoRow(
+                    icon: HugeIcons.strokeRoundedDeliveryBox01,
+                    label: 'delivery_type'.tr,
+                    value: order.deliveryTypeDetail!.localizedName(lang),
+                  ),
+                if (order.deliveryTimeDetail != null) ...[
+                  if (order.deliveryTypeDetail != null) const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: HugeIcons.strokeRoundedClock01,
+                    label: 'delivery_time'.tr,
+                    value: order.deliveryTimeDetail!.displayTime,
+                  ),
+                ],
+                if (order.phoneNumber != null && order.phoneNumber!.isNotEmpty) ...[
+                  if (order.deliveryTypeDetail != null || order.deliveryTimeDetail != null) const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: HugeIcons.strokeRoundedCall,
+                    label: 'phone'.tr,
+                    value: order.phoneNumber!,
+                  ),
+                ],
+                if (order.address != null && order.address!.isNotEmpty) ...[
+                  if (order.phoneNumber != null || order.deliveryTimeDetail != null) const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: HugeIcons.strokeRoundedLocation01,
+                    label: 'address'.tr,
+                    value: order.address!,
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Divider(height: 1, thickness: 0.8),
+          ),
+
           // ── Footer: payment + total ──────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Row(
               children: [
                 if (order.paymentStatus != null) ...[
@@ -299,7 +388,7 @@ class _OrderCard extends StatelessWidget {
                       vertical: 5,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF22B241).withValues(alpha: 0.08),
+                      color: AppColors.accent.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -307,7 +396,7 @@ class _OrderCard extends StatelessWidget {
                       children: [
                         const HugeIcon(
                           icon: HugeIcons.strokeRoundedMoney01,
-                          color: Color(0xFF22B241),
+                          color: AppColors.black,
                           size: 14,
                         ),
                         const SizedBox(width: 5),
@@ -317,7 +406,7 @@ class _OrderCard extends StatelessWidget {
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             fontFamily: 'Gilroy',
-                            color: Color(0xFF22B241),
+                            color: AppColors.black,
                           ),
                         ),
                       ],
@@ -426,14 +515,95 @@ class _ItemRow extends StatelessWidget {
         ),
         Text(
           '${item.cost.toStringAsFixed(0)} TMT',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, fontFamily: 'Gilroy', color: AppColors.black),
+        ),
+      ],
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoRow({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        HugeIcon(icon: icon, color: Colors.black45, size: 14),
+        const SizedBox(width: 6),
+        Text(
+          '$label: ',
           style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
             fontFamily: 'Gilroy',
-            color: Color(0xFF22B241),
+            color: Colors.black45,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Gilroy',
+              color: Color(0xFF1D1B20),
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String status;
+
+  const _StatusBadge({required this.status});
+
+  static const _colors = <String, Color>{
+    'pending': Color(0xFFF59E0B),
+    'processing': Color(0xFF3B82F6),
+    'on_way': Color(0xFF8B5CF6),
+    'delivered': Color(0xFF22C55E),
+    'cancelled': Color(0xFFEF4444),
+  };
+
+  static const _labelKeys = <String, String>{
+    'pending': 'status_pending',
+    'processing': 'status_processing',
+    'on_way': 'status_on_way',
+    'delivered': 'status_delivered',
+    'cancelled': 'status_cancelled',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _colors[status] ?? const Color(0xFF6B7280);
+    final labelKey = _labelKeys[status];
+    final label = labelKey != null ? labelKey.tr : status;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'Gilroy',
+          color: color,
+        ),
+      ),
     );
   }
 }

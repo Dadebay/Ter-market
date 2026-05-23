@@ -15,7 +15,7 @@ class ContactPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
       appBar: AppBar(
-        leading: GestureDetector(onTap: () => Get.back(), child: const Icon(IconlyLight.arrow_left_circle, color: Color(0xFF1D1B20))),
+        leading: GestureDetector(onTap: () => Navigator.of(context).pop(), child: const Icon(IconlyLight.arrow_left_circle, color: Color(0xFF1D1B20))),
         title: Text(
           'contact_us'.tr,
           style: const TextStyle(
@@ -78,7 +78,7 @@ class ContactPage extends StatelessWidget {
                           children: [
                             _buildSectionTitle('phone_numbers'.tr),
                             const SizedBox(height: 12),
-                            if (contact.phone1 != null)
+                            if (contact.phone1 != null && contact.phone1!.isNotEmpty)
                               _buildContactCard(
                                 icon: FeatherIcons.phone,
                                 label: 'phone'.tr + ' 1',
@@ -86,7 +86,7 @@ class ContactPage extends StatelessWidget {
                                 color: const Color(0xFF4B2AA4),
                                 type: 'tel',
                               ),
-                            if (contact.phone2 != null)
+                            if (contact.phone2 != null && contact.phone2!.isNotEmpty)
                               _buildContactCard(
                                 icon: FeatherIcons.phone,
                                 label: 'phone'.tr + ' 2',
@@ -94,7 +94,7 @@ class ContactPage extends StatelessWidget {
                                 color: const Color(0xFF4B2AA4),
                                 type: 'tel',
                               ),
-                            if (contact.phone3 != null)
+                            if (contact.phone3 != null && contact.phone3!.isNotEmpty)
                               _buildContactCard(
                                 icon: FeatherIcons.phone,
                                 label: 'phone'.tr + ' 3',
@@ -107,14 +107,14 @@ class ContactPage extends StatelessWidget {
                         ),
 
                       // Email
-                      if (contact.email != null)
+                      if (contact.email != null && contact.email!.isNotEmpty)
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildSectionTitle('email'.tr),
                             const SizedBox(height: 12),
                             _buildContactCard(
-                              icon: FeatherIcons.mail,
+                              icon: IconlyLight.message,
                               label: 'email_address'.tr,
                               value: contact.email!,
                               color: const Color(0xFF3498DB),
@@ -125,21 +125,24 @@ class ContactPage extends StatelessWidget {
                         ),
 
                       // Social Media
-                      if (contact.telegram != null || contact.tiktok != null || contact.youtube != null || contact.facebook != null)
+                      if ((contact.telegram != null && contact.telegram!.isNotEmpty) ||
+                          (contact.tiktok != null && contact.tiktok!.isNotEmpty) ||
+                          (contact.youtube != null && contact.youtube!.isNotEmpty) ||
+                          (contact.facebook != null && contact.facebook!.isNotEmpty))
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildSectionTitle('social_media'.tr),
                             const SizedBox(height: 12),
-                            if (contact.telegram != null)
+                            if (contact.telegram != null && contact.telegram!.isNotEmpty)
                               _buildContactCard(
-                                icon: FeatherIcons.send,
+                                icon: IconlyLight.send,
                                 label: 'Telegram',
                                 value: contact.telegram!,
                                 color: const Color(0xFF29B6F6),
                                 type: 'telegram',
                               ),
-                            if (contact.facebook != null)
+                            if (contact.facebook != null && contact.facebook!.isNotEmpty)
                               _buildContactCard(
                                 icon: FeatherIcons.facebook,
                                 label: 'Facebook',
@@ -147,7 +150,7 @@ class ContactPage extends StatelessWidget {
                                 color: const Color(0xFF1877F2),
                                 type: 'url',
                               ),
-                            if (contact.youtube != null)
+                            if (contact.youtube != null && contact.youtube!.isNotEmpty)
                               _buildContactCard(
                                 icon: FeatherIcons.youtube,
                                 label: 'YouTube',
@@ -155,7 +158,7 @@ class ContactPage extends StatelessWidget {
                                 color: const Color(0xFFFF0000),
                                 type: 'url',
                               ),
-                            if (contact.tiktok != null)
+                            if (contact.tiktok != null && contact.tiktok!.isNotEmpty)
                               _buildContactCard(
                                 icon: FeatherIcons.video,
                                 label: 'TikTok',

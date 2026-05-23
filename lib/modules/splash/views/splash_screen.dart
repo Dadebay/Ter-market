@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -72,40 +73,94 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     try {
       final messaging = FirebaseMessaging.instance;
       await messaging.requestPermission(alert: true, badge: true, sound: true);
-      final token = await messaging.getToken();
-      if (token == null) return;
-      print('[FCM] Current token: $token');
-      print('[DEVICE ID: ${Get.find<GetStorage>().read<String>('device_id')}]');
 
-      final storage = Get.find<GetStorage>();
-      final stored = storage.read<String>('fcm_token');
-      if (stored == token) return;
+      // For iOS, wait for APNS token to be ready (up to 5 seconds)
+      if (Platform.isIOS) {
+        print('[APNS] Waiting for APNS token...');
 
-      await ApiService().registerFcmToken(token);
-      storage.write('fcm_token', token);
-      print('[FCM] Token registered successfully: $token');
+        bool apnsReady = false;
+        for (int i = 0; i < 5; i++) {
+          await Future.delayed(const Duration(seconds: 1));
+          final apnsToken = await messaging.getAPNSToken();
 
-      // Listen for token refreshes
-      messaging.onTokenRefresh.listen((newToken) async {
-        try {
-          await ApiService().registerFcmToken(newToken);
-          storage.write('fcm_token', newToken);
-          print('[FCM] Token refreshed and re-registered: $newToken');
-        } catch (e) {
-          print('[FCM] Token refresh failed: $e');
+          if (apnsToken != null) {
+            print('[APNS] Token received: $apnsToken');
+            apnsReady = true;
+            break;
+          }
+
+          print('[APNS] Attempt ${i + 1}/5: Token not available yet...');
         }
-      });
+
+        if (!apnsReady) {
+          // APNS not ready yet — schedule a background retry after navigation
+          // onTokenRefresh in main.dart also covers this, but an explicit retry
+          // is more reliable when the token is generated for the first time.
+          _scheduleFcmBackgroundRetry(messaging);
+          return;
+        }
+      }
+
+      await _registerFcmToken(messaging);
     } catch (e) {
       print('[FCM] Registration failed: $e');
     }
+  }
+
+  void _scheduleFcmBackgroundRetry(FirebaseMessaging messaging) {
+    print('[FCM] Scheduling background retry in 20 seconds...');
+    Future.delayed(const Duration(seconds: 20), () async {
+      try {
+        if (Platform.isIOS) {
+          final apnsToken = await messaging.getAPNSToken();
+          if (apnsToken == null) {
+            print('[APNS] Background retry: token still not available');
+            return;
+          }
+          print('[APNS] Background retry: token received');
+        }
+        await _registerFcmToken(messaging);
+      } catch (e) {
+        print('[FCM] Background retry failed: $e');
+      }
+    });
+  }
+
+  Future<void> _registerFcmToken(FirebaseMessaging messaging) async {
+    String? token;
+    try {
+      token = await messaging.getToken();
+    } catch (e) {
+      print('[FCM] Error getting token: $e');
+      token = null;
+    }
+
+    if (token == null) {
+      print('[FCM] Token is null, will register when available via listener');
+      return; // Listener in main.dart will handle registration
+    }
+
+    print('[FCM] Current token: $token');
+    print('[DEVICE ID: ${Get.find<GetStorage>().read<String>('device_id')}]');
+
+    final storage = Get.find<GetStorage>();
+    final stored = storage.read<String>('fcm_token');
+    if (stored == token) return;
+
+    await ApiService().registerFcmToken(token);
+    storage.write('fcm_token', token);
+    print('[FCM] Token registered successfully: $token');
   }
 
   Future<void> _syncDevice() async {
     try {
       final storage = Get.find<GetStorage>();
       var deviceId = storage.read<String>('device_id');
+
+      // Create device ID only if it doesn't exist
+      // Don't migrate legacy IDs to preserve favorites and other data
       if (deviceId == null) {
-        deviceId = 'atlas-${DateTime.now().millisecondsSinceEpoch}';
+        deviceId = await _buildDeviceId();
         storage.write('device_id', deviceId);
       }
 
@@ -120,6 +175,35 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       print('[Device] Registration failed: $e');
     }
   }
+
+  Future<String> _buildDeviceId() async {
+    final now = DateTime.now();
+    final timestamp = '${now.year}${_twoDigits(now.month)}${_twoDigits(now.day)}-${_twoDigits(now.hour)}${_twoDigits(now.minute)}${_twoDigits(now.second)}';
+    final entropy = now.microsecondsSinceEpoch.toRadixString(36);
+    final rawName = await _readDeviceName();
+    final safeName = rawName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_').replaceAll(RegExp(r'_+'), '_').replaceAll(RegExp(r'^_|_$'), '');
+
+    return 'atlas-${safeName.isEmpty ? 'unknown' : safeName}-$timestamp-$entropy';
+  }
+
+  Future<String> _readDeviceName() async {
+    try {
+      final info = DeviceInfoPlugin();
+      if (Platform.isAndroid) {
+        final android = await info.androidInfo;
+        return '${android.brand} ${android.model}';
+      }
+      if (Platform.isIOS) {
+        final ios = await info.iosInfo;
+        return '${ios.name} ${ios.utsname.machine}';
+      }
+      return Platform.operatingSystem;
+    } catch (_) {
+      return Platform.operatingSystem;
+    }
+  }
+
+  String _twoDigits(int value) => value.toString().padLeft(2, '0');
 
   @override
   Widget build(BuildContext context) {

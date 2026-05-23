@@ -58,7 +58,7 @@ class CartController extends GetxController {
   }
 
   /// Adds item to cart if not present, otherwise increments quantity.
-  void addOrIncrement(Map<String, dynamic> item) {
+  void addOrIncrement(Map<String, dynamic> item, {bool silent = false}) {
     final id = item['id'];
     final title = item['title'] as String? ?? '';
     int index = cartItems.indexWhere(
@@ -72,7 +72,7 @@ class CartController extends GetxController {
       final newItem = Map<String, dynamic>.from(item);
       newItem['quantity'] = 1;
       cartItems.add(newItem);
-      AppDialogs.showAddedToCart();
+      if (!silent) AppDialogs.showAddedToCart();
     }
   }
 
@@ -124,42 +124,57 @@ class FavoritesController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    print('[Favourites] Controller initialized - device_id: $_deviceId');
     fetchFavourites();
   }
 
   Future<void> fetchFavourites() async {
     isLoading.value = true;
     try {
+      print('[Favourites] Loading with device_id: $_deviceId');
       final products = await _api.getFavourites(_deviceId);
       favoriteItems.value = products.map(_toMap).toList();
+      print('[Favourites] Loaded ${favoriteItems.length} items');
     } catch (e) {
       print('[Favourites] Load failed: $e');
+      // Clear on error to show empty state
+      favoriteItems.value = [];
     } finally {
       isLoading.value = false;
     }
   }
 
+  /// Refresh favorites from the backend
+  Future<void> refresh() async {
+    await fetchFavourites();
+  }
+
   bool isFavorited(dynamic id, dynamic title) {
     final parsed = _toIntId(id);
-    if (parsed != null) {
-      return favoriteItems.any((item) => _toIntId(item['id']) == parsed);
-    }
-    return favoriteItems.any((item) => item['title'] == title);
+    final result = parsed != null ? favoriteItems.any((item) => _toIntId(item['id']) == parsed) : favoriteItems.any((item) => item['title'] == title);
+    print('[Favourites] isFavorited(id: $id, title: $title) => $result (parsed: $parsed, items: ${favoriteItems.length})');
+    return result;
   }
 
   Future<void> toggleFavorite(Map<String, dynamic> item) async {
+    print('[Favourites] toggleFavorite called with item: $item');
     final rawId = item['id'];
     final productId = _toIntId(rawId);
+    print('[Favourites] rawId: $rawId, parsed productId: $productId');
     final existing = productId != null ? favoriteItems.indexWhere((e) => _toIntId(e['id']) == productId) : favoriteItems.indexWhere((e) => e['title'] == item['title']);
+    print('[Favourites] existing index: $existing, favoriteItems.length: ${favoriteItems.length}');
 
     if (existing != -1) {
       // Optimistic remove
+      print('[Favourites] Removing item at index $existing');
       final removed = favoriteItems[existing];
       favoriteItems.removeAt(existing);
       AppDialogs.showRemovedFromFavorites();
       if (productId != null) {
         try {
+          print('[Favourites] API call: removeFavourite(deviceId: $_deviceId, productId: $productId)');
           await _api.removeFavourite(_deviceId, productId);
+          print('[Favourites] Successfully removed from backend');
         } catch (e) {
           // Roll back on failure
           favoriteItems.insert(existing, removed);
@@ -172,10 +187,14 @@ class FavoritesController extends GetxController {
       }
     } else {
       // Optimistic add
+      print('[Favourites] Adding new item to favorites');
       favoriteItems.add(item);
+      print('[Favourites] favoriteItems.length after add: ${favoriteItems.length}');
       if (productId != null) {
         try {
+          print('[Favourites] API call: addFavourite(deviceId: $_deviceId, productId: $productId)');
           await _api.addFavourite(_deviceId, productId);
+          print('[Favourites] Successfully added to backend');
         } catch (e) {
           // Roll back on failure
           favoriteItems.removeWhere((e) => _toIntId(e['id']) == productId);

@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'package:atlas/modules/home/views/banner_detail_screen.dart';
 import 'package:atlas/themes/colors.dart';
+import 'package:atlas/utils/nav.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:atlas/models/banner_model.dart';
 import 'package:atlas/modules/home/controllers/banner_controller.dart';
 import 'package:atlas/widgets/app_network_image.dart';
+import 'package:atlas/modules/main/controllers/feature_controllers.dart';
+import 'package:atlas/widgets/app_dialogs.dart';
 
 class BannerCarousel extends StatefulWidget {
   const BannerCarousel({super.key});
@@ -52,13 +55,37 @@ class _BannerCarouselState extends State<BannerCarousel> {
   }
 
   void _handleBannerTap(BannerModel banner) {
+    // Eğer banner'da products varsa, hepsini sepete ekle
+    if (banner.products != null && banner.products!.isNotEmpty) {
+      final cartController = Get.find<CartController>();
+      // Ürünleri sessizce ekle (her biri için snackbar gösterme)
+      for (final product in banner.products!) {
+        cartController.addOrIncrement({
+          'id': product.id,
+          'title': product.localizedName,
+          'imageUrl': product.image ?? '',
+          'price': product.price,
+          'rating': product.rating,
+        }, silent: true);
+      }
+      // Sonunda tek bir snackbar göster
+      AppDialogs.showSnackbar(
+        message: '${banner.products!.length} ${'products_added_to_cart'.tr}',
+        icon: Icons.shopping_cart_rounded,
+        iconColor: const Color(0xFF22B241),
+      );
+      return;
+    }
+
+    // Normal banner davranışı
     final body = banner.body ?? '';
     final isUrl = body.startsWith('http://') || body.startsWith('https://');
     if (isUrl) {
       final uri = Uri.parse(body);
       launchUrl(uri, mode: LaunchMode.externalApplication);
     } else if (body.isNotEmpty) {
-      Get.to(
+      Nav.push(
+        context,
         () => BannerDetailScreen(
           title: banner.title ?? '',
           imageUrl: banner.image,

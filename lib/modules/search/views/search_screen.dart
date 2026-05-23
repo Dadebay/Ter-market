@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:atlas/utils/nav.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/modules/search/controllers/product_search_controller.dart';
 import 'package:atlas/modules/product_detail/bindings/product_detail_binding.dart';
 import 'package:atlas/modules/product_detail/views/product_detail_screen.dart';
 import 'package:atlas/models/product_model.dart';
+import 'package:atlas/themes/colors.dart';
 import 'package:iconly/iconly.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -56,10 +58,10 @@ class _SearchScreenState extends State<SearchScreen> {
         toolbarHeight: 60,
         titleSpacing: 12,
         leading: IconButton(
-          onPressed: Get.back,
+          onPressed: () => Navigator.of(context).pop(),
           icon: const HugeIcon(
             icon: HugeIcons.strokeRoundedArrowLeft01,
-            color: Color(0xff22B241),
+            color: AppColors.primary,
             size: 24,
           ),
         ),
@@ -154,7 +156,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                 child: Text(
                                   'clear_all'.tr,
                                   style: const TextStyle(
-                                    color: Color(0xff22B241),
+                                    color: AppColors.primary,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                     fontFamily: 'Gilroy',
@@ -234,7 +236,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 if (isLoading) {
                   return const Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xff22B241),
+                      color: AppColors.primary,
                     ),
                   );
                 }
@@ -263,7 +265,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                             decoration: BoxDecoration(
-                              color: const Color(0xff22B241),
+                              color: AppColors.primary,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -298,7 +300,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         Text(
                           '${results.length} ${'products'.tr}',
                           style: const TextStyle(
-                            color: Color(0xff22B241),
+                            color: AppColors.primary,
                             fontWeight: FontWeight.w800,
                             fontFamily: 'Gilroy',
                           ),
@@ -358,7 +360,8 @@ class _SearchResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => Get.to(
+      onTap: () => Nav.push(
+        context,
         () => ProductDetailScreen(
           productId: product.id,
           title: product.localizedName,
@@ -402,7 +405,7 @@ class _SearchResultCard extends StatelessWidget {
                               return Center(
                                 child: CircularProgressIndicator(
                                   value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null,
-                                  color: const Color(0xff22B241),
+                                  color: AppColors.primary,
                                   strokeWidth: 2,
                                 ),
                               );
@@ -421,13 +424,13 @@ class _SearchResultCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xff22B241).withValues(alpha: 0.1),
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           '-${product.discount!.toStringAsFixed(0)}%',
                           style: const TextStyle(
-                            color: Color(0xff22B241),
+                            color: AppColors.primary,
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
                             fontFamily: 'Gilroy',
@@ -436,7 +439,7 @@ class _SearchResultCard extends StatelessWidget {
                       ),
                     const SizedBox(height: 4),
                     Text(
-                      product.name,
+                      product.localizedName,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -452,7 +455,7 @@ class _SearchResultCard extends StatelessWidget {
                         Text(
                           '${product.price.toStringAsFixed(0)} TMT',
                           style: const TextStyle(
-                            color: Color(0xff22B241),
+                            color: AppColors.primary,
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
                             fontFamily: 'Gilroy',

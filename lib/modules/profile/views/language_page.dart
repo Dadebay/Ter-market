@@ -31,7 +31,7 @@ class LanguagePage extends StatelessWidget {
             size: 24,
             color: Color(0xFF22B241),
           ),
-          onPressed: () => Get.back(),
+          onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: Column(

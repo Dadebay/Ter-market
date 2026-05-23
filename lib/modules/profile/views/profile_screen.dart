@@ -1,5 +1,6 @@
 import 'package:atlas/modules/favorites/views/favorites_screen.dart';
 import 'package:atlas/modules/orders/views/my_orders_screen.dart';
+import 'package:atlas/utils/nav.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -50,7 +51,7 @@ class _LoggedInBody extends StatelessWidget {
           _buildMenuItem(
             HugeIcons.strokeRoundedGlobal,
             'language'.tr,
-            () => Get.to(() => LanguagePage()),
+            () => Nav.push(context, () => LanguagePage()),
             trailing: GetX<LanguageController>(
               init: LanguageController(),
               builder: (langCtrl) => Text(
@@ -68,25 +69,25 @@ class _LoggedInBody extends StatelessWidget {
           _buildMenuItem(
             HugeIcons.strokeRoundedShoppingBag01,
             'my_orders'.tr,
-            () => Get.to(() => const MyOrdersScreen()),
+            () => Nav.push(context, () => const MyOrdersScreen()),
           ),
           const SizedBox(height: 12),
           _buildMenuItem(
             HugeIcons.strokeRoundedFavourite,
             'favorites'.tr,
-            () => Get.to(() => const FavoritesScreen()),
+            () => Nav.push(context, () => FavoritesScreen(fromBottomNavBar: false)),
           ),
           const SizedBox(height: 12),
           _buildMenuItem(
             HugeIcons.strokeRoundedCovidInfo,
             'about'.tr,
-            () => Get.to(() => const PrivacyPage()),
+            () => Nav.push(context, () => const PrivacyPage()),
           ),
           const SizedBox(height: 12),
           _buildMenuItem(
             HugeIcons.strokeRoundedInformationCircle,
             'about_us'.tr,
-            () => Get.to(() => const AboutPage()),
+            () => Nav.push(context, () => const AboutPage()),
           ),
           const SizedBox(height: 12),
           _buildMenuItem(
@@ -213,7 +214,7 @@ void _showDeleteAccountDialog(BuildContext context) {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      Get.back();
+                      Navigator.of(context).pop();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
@@ -236,7 +237,7 @@ void _showDeleteAccountDialog(BuildContext context) {
                 Expanded(
                   child: TextButton(
                     onPressed: () async {
-                      Get.back();
+                      Navigator.of(context).pop();
                       try {
                         await FirebaseMessaging.instance.deleteToken();
                       } catch (_) {}

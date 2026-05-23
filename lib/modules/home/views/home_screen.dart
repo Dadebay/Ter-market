@@ -1,6 +1,7 @@
 import 'package:feather_icons/feather_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:atlas/utils/nav.dart';
 import 'package:atlas/modules/home/controllers/home_controller.dart';
 import 'package:atlas/modules/home/widgets/home_widgets.dart';
 import 'package:atlas/modules/product/controllers/product_controller.dart';
@@ -20,7 +21,8 @@ import 'package:atlas/modules/search/views/search_screen.dart';
 import 'package:iconly/iconly.dart';
 
 class HomeScreen extends GetView<HomeController> {
-  const HomeScreen({super.key});
+  HomeScreen({super.key});
+  final HomeController controller = Get.put<HomeController>(HomeController());
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +42,8 @@ class HomeScreen extends GetView<HomeController> {
     }
 
     void onProductTap(ProductModel product) {
-      Get.to(
+      Nav.push(
+        context,
         () => ProductDetailScreen(
           productId: product.id,
           title: product.localizedName,
@@ -93,7 +96,7 @@ class HomeScreen extends GetView<HomeController> {
             ),
             // ── Sağ: sadece arama ikonu ──
             GestureDetector(
-              onTap: () => Get.to(() => const ContactPage()),
+              onTap: () => Nav.push(context, () => ContactPage()),
               child: Icon(FeatherIcons.phoneCall, color: Colors.black87, size: 20),
             ),
             const SizedBox(width: 4),
@@ -146,7 +149,7 @@ class HomeScreen extends GetView<HomeController> {
                           ),
                           onSubmitted: (value) {
                             if (value.isNotEmpty) {
-                              Get.to(() => SearchScreen(initialQuery: value));
+                              Nav.push(context, () => SearchScreen(initialQuery: value));
                             }
                           },
                         ),
@@ -157,9 +160,9 @@ class HomeScreen extends GetView<HomeController> {
                       onTap: () {
                         final query = searchController.text.trim();
                         if (query.isNotEmpty) {
-                          Get.to(() => SearchScreen(initialQuery: query));
+                          Nav.push(context, () => SearchScreen(initialQuery: query));
                         } else {
-                          Get.to(() => const SearchScreen());
+                          Nav.push(context, () => const SearchScreen());
                         }
                       },
                       child: Container(
@@ -180,14 +183,16 @@ class HomeScreen extends GetView<HomeController> {
                 ),
               ),
               const BannerCarousel(),
-              _buildCategorySection(categoryController),
+              _buildCategorySection(context, categoryController),
               _buildSectionHeader(
                 'discounts'.tr,
                 () {
-                  Get.to(() => CategoryDetailScreen(
-                        categoryName: 'discounts'.tr,
-                        initialFilter: 'price_high',
-                      ));
+                  Nav.push(
+                      context,
+                      () => CategoryDetailScreen(
+                            categoryName: 'discounts'.tr,
+                            initialFilter: 'price_high',
+                          ));
                 },
               ),
               Obx(() {
@@ -198,7 +203,7 @@ class HomeScreen extends GetView<HomeController> {
                   return const SizedBox(height: 100);
                 }
                 return SizedBox(
-                  height: 270,
+                  height: 260,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.only(left: 16, right: 8),
@@ -211,6 +216,7 @@ class HomeScreen extends GetView<HomeController> {
                           id: product.id.toString(),
                           imageUrl: product.image ?? '',
                           title: product.localizedName,
+                          description: product.localizedDescription,
                           price: product.price,
                           oldPrice: product.oldPrice,
                           rating: product.rating,
@@ -228,10 +234,12 @@ class HomeScreen extends GetView<HomeController> {
               _buildSectionHeader(
                 'new_products'.tr,
                 () {
-                  Get.to(() => CategoryDetailScreen(
-                        categoryName: 'new_products'.tr,
-                        initialFilter: 'newest',
-                      ));
+                  Nav.push(
+                      context,
+                      () => CategoryDetailScreen(
+                            categoryName: 'new_products'.tr,
+                            initialFilter: 'newest',
+                          ));
                 },
               ),
               Obx(() {
@@ -242,7 +250,7 @@ class HomeScreen extends GetView<HomeController> {
                   return const SizedBox(height: 100);
                 }
                 return SizedBox(
-                  height: 350,
+                  height: 260,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.only(left: 16, right: 8),
@@ -255,6 +263,7 @@ class HomeScreen extends GetView<HomeController> {
                           id: product.id.toString(),
                           imageUrl: product.image ?? '',
                           title: product.localizedName,
+                          description: product.localizedDescription,
                           price: product.price,
                           oldPrice: product.oldPrice,
                           rating: product.rating,
@@ -277,7 +286,7 @@ class HomeScreen extends GetView<HomeController> {
     );
   }
 
-  Widget _buildCategorySection(CategoryController categoryController) {
+  Widget _buildCategorySection(BuildContext context, CategoryController categoryController) {
     return Padding(
       padding: const EdgeInsets.only(top: 14, bottom: 16),
       child: Column(
@@ -308,21 +317,25 @@ class HomeScreen extends GetView<HomeController> {
             }
             // Display up to 8 categories in a 4x2 grid
             final displayCategories = categoryController.categories.take(12).toList();
+            final screenWidth = MediaQuery.of(context).size.width;
+            final isTablet = screenWidth >= 600;
+            final catCrossAxisCount = isTablet ? 6 : 4;
+            final catAspectRatio = isTablet ? 0.75 : 0.70;
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  childAspectRatio: 0.70,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: catCrossAxisCount,
+                  childAspectRatio: catAspectRatio,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
                 ),
                 itemCount: displayCategories.length,
                 itemBuilder: (context, index) {
                   final category = displayCategories[index];
-                  return _buildCategoryCard(category);
+                  return _buildCategoryCard(context, category);
                 },
               ),
             );
@@ -332,10 +345,11 @@ class HomeScreen extends GetView<HomeController> {
     );
   }
 
-  Widget _buildCategoryCard(category) {
+  Widget _buildCategoryCard(BuildContext context, category) {
     return GestureDetector(
       onTap: () {
-        Get.to(
+        Nav.push(
+          context,
           () => CategoryDetailScreen(
             categoryId: category.id,
             categoryName: category.localizedName,

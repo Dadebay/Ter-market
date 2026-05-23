@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
+import 'package:atlas/themes/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -140,7 +141,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(4),
-                                      color: selected ? const Color(0xff22B241) : Colors.grey.withOpacity(0.35),
+                                      color: selected ? AppColors.primary : Colors.grey.withOpacity(0.35),
                                     ),
                                   ),
                                 );
@@ -165,7 +166,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   Text(
                                     _localizedCategoryName,
                                     style: const TextStyle(
-                                      color: Color(0xff22B241),
+                                      color: AppColors.primary,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -201,7 +202,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               Text(
                                 '${_fmt(displayPrice)} TMT',
                                 style: const TextStyle(
-                                  color: Color(0xff22B241),
+                                  color: AppColors.primary,
                                   fontSize: 24,
                                   fontWeight: FontWeight.w900,
                                   fontFamily: 'Gilroy',
@@ -283,8 +284,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       backgroundColor: Colors.white,
       elevation: 0,
       leading: IconButton(
-        icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, color: Color(0xff22B241)),
-        onPressed: () => Get.back(),
+        icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, color: AppColors.primary),
+        onPressed: () => Navigator.of(context).pop(),
       ),
       actions: [
         Obx(() {
@@ -305,7 +306,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ? const Icon(Icons.favorite, color: Colors.red)
                 : const HugeIcon(
                     icon: HugeIcons.strokeRoundedFavourite,
-                    color: Color(0xff22B241),
+                    color: AppColors.primary,
                   ),
           );
         }),
@@ -314,7 +315,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             final p = _ctrl.product.value;
             Share.share('${p?.localizedName ?? widget.title}\n${p?.image ?? widget.imageUrl}');
           },
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedShare01, color: Color(0xff22B241)),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedShare01, color: AppColors.primary),
         ),
         const SizedBox(width: 8),
       ],
@@ -335,40 +336,43 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void _openFullscreen(List<String> imgs, int initialIndex) {
     final fsCtrl = PageController(initialPage: initialIndex);
     final currentIdx = initialIndex.obs;
-    Get.to(
-      () => Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        transitionDuration: const Duration(milliseconds: 200),
+        pageBuilder: (_, __, ___) => Scaffold(
           backgroundColor: Colors.black,
-          elevation: 0,
-          leading: IconButton(
-            onPressed: () => Get.back(),
-            icon: const Icon(Icons.close, color: Colors.white, size: 28),
-          ),
-          actions: [
-            Obx(() => Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Center(
-                    child: Text(
-                      '${currentIdx.value + 1} / ${imgs.length}',
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            elevation: 0,
+            leading: IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close, color: Colors.white, size: 28),
+            ),
+            actions: [
+              Obx(() => Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Center(
+                      child: Text(
+                        '${currentIdx.value + 1} / ${imgs.length}',
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                      ),
                     ),
-                  ),
-                )),
-          ],
-        ),
-        body: PageView.builder(
-          controller: fsCtrl,
-          itemCount: imgs.length,
-          onPageChanged: (i) => currentIdx.value = i,
-          itemBuilder: (_, index) => InteractiveViewer(
-            minScale: 0.8,
-            maxScale: 5.0,
-            child: Center(child: _buildImage(imgs[index])),
+                  )),
+            ],
+          ),
+          body: PageView.builder(
+            controller: fsCtrl,
+            itemCount: imgs.length,
+            onPageChanged: (i) => currentIdx.value = i,
+            itemBuilder: (_, index) => InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 5.0,
+              child: Center(child: _buildImage(imgs[index])),
+            ),
           ),
         ),
       ),
-      transition: Transition.fadeIn,
     );
   }
 
@@ -398,7 +402,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
-                      color: Color(0xff22B241),
+                      color: AppColors.primary,
                       fontFamily: 'Gilroy',
                     ),
                   ),
@@ -420,7 +424,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xff22B241),
+                    color: AppColors.primary,
                     fontFamily: 'Gilroy',
                   ),
                 ),
@@ -437,9 +441,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       });
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xff22B241),
+                      backgroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                     child: Text(
                       'add_to_cart'.tr,
@@ -472,8 +476,8 @@ class _CartCounter extends StatelessWidget {
     return Container(
       height: 50,
       decoration: BoxDecoration(
-        color: const Color(0xff22B241),
-        borderRadius: BorderRadius.circular(10),
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

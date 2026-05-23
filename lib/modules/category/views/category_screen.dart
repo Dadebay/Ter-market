@@ -1,17 +1,134 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:atlas/core/api/api_service.dart';
+import 'package:atlas/models/brand_model.dart';
+import 'package:atlas/utils/nav.dart';
 import 'package:atlas/models/category_model.dart';
 import 'package:atlas/modules/category/controllers/category_controller.dart';
 import 'package:atlas/modules/category/views/category_detail_screen.dart';
+import 'package:atlas/themes/colors.dart';
 import 'package:atlas/widgets/app_loading_state.dart';
 import 'package:atlas/widgets/app_empty_state.dart';
 import 'package:atlas/widgets/app_network_image.dart';
+import 'package:iconly/iconly.dart';
 
-class CategoryScreen extends GetView<CategoryController> {
+class _SearchHit {
+  final CategoryModel? category;
+  final SubCategoryModel? subCategory;
+  final CategoryModel? parentCategory;
+
+  _SearchHit.category(CategoryModel cat)
+      : category = cat,
+        subCategory = null,
+        parentCategory = null;
+
+  _SearchHit.subCategory(SubCategoryModel sub, CategoryModel? parent)
+      : category = null,
+        subCategory = sub,
+        parentCategory = parent;
+
+  bool get isCategory => category != null;
+  String get displayName => isCategory ? category!.localizedName : subCategory!.localizedName;
+}
+
+class CategoryScreen extends StatefulWidget {
   const CategoryScreen({super.key});
 
   @override
+  State<CategoryScreen> createState() => _CategoryScreenState();
+}
+
+class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProviderStateMixin {
+  late final CategoryController _ctrl;
+  final _api = ApiService();
+  final _searchCtrl = TextEditingController();
+  late final TabController _tabController;
+  bool _isSearching = false;
+  List<_SearchHit> _hits = [];
+  final _brands = <BrandModel>[];
+  bool _isBrandsLoading = true;
+  bool _hasBrandsError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = Get.find<CategoryController>();
+    _tabController = TabController(length: 2, vsync: this)
+      ..addListener(() {
+        if (_tabController.indexIsChanging) return;
+        if (_tabController.index != 0 && _isSearching) {
+          _stopSearch();
+        }
+        setState(() {});
+      });
+    _searchCtrl.addListener(_onSearchChanged);
+    _fetchBrands();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchBrands() async {
+    setState(() {
+      _isBrandsLoading = true;
+      _hasBrandsError = false;
+    });
+    try {
+      final brands = await _api.getBrands();
+      if (!mounted) return;
+      setState(() {
+        _brands
+          ..clear()
+          ..addAll(brands);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _hasBrandsError = true);
+    } finally {
+      if (!mounted) return;
+      setState(() => _isBrandsLoading = false);
+    }
+  }
+
+  void _onSearchChanged() {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    if (q.isEmpty) {
+      setState(() => _hits = []);
+      return;
+    }
+    final hits = <_SearchHit>[];
+    for (final cat in _ctrl.categories) {
+      if (cat.titleTk.toLowerCase().contains(q) || cat.titleRu.toLowerCase().contains(q)) {
+        hits.add(_SearchHit.category(cat));
+      }
+    }
+    for (final sub in _ctrl.allSubCategories) {
+      if (sub.titleTk.toLowerCase().contains(q) || sub.titleRu.toLowerCase().contains(q)) {
+        final parent = _ctrl.categories.firstWhereOrNull((c) => c.id == sub.categoryId);
+        hits.add(_SearchHit.subCategory(sub, parent));
+      }
+    }
+    setState(() => _hits = hits);
+  }
+
+  void _startSearch() => setState(() => _isSearching = true);
+
+  void _stopSearch() {
+    _searchCtrl.clear();
+    setState(() {
+      _isSearching = false;
+      _hits = [];
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isCategoryTab = _tabController.index == 0;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -19,43 +136,370 @@ class CategoryScreen extends GetView<CategoryController> {
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.white,
-        titleSpacing: 16,
-        title: Text(
-          'categories'.tr,
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            fontFamily: 'Gilroy',
+        titleSpacing: _isSearching ? 4 : 16,
+        leading: isCategoryTab && _isSearching
+            ? IconButton(
+                icon: Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: _stopSearch,
+              )
+            : null,
+        title: isCategoryTab && _isSearching
+            ? TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontFamily: 'Gilroy',
+                  color: Colors.black,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'search_category'.tr,
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 15,
+                    fontFamily: 'Gilroy',
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+              )
+            : Text(
+                'categories'.tr,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Gilroy',
+                ),
+              ),
+        centerTitle: false,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(52),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: AnimatedBuilder(
+              animation: _tabController,
+              builder: (_, __) {
+                final idx = _tabController.index;
+                return Container(
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F4F3),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      _buildTabPill(0, 'categories'.tr, idx),
+                      _buildTabPill(1, 'brands'.tr, idx),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ),
-        centerTitle: false,
+        actions: [
+          if (isCategoryTab && _isSearching && _searchCtrl.text.isNotEmpty)
+            IconButton(
+              onPressed: () {
+                _searchCtrl.clear();
+                setState(() => _hits = []);
+              },
+              icon: const Icon(Icons.close_rounded, color: Colors.black54, size: 22),
+            )
+          else if (isCategoryTab && !_isSearching)
+            IconButton(
+              onPressed: _startSearch,
+              icon: Icon(IconlyLight.search, color: Colors.black87, size: 24),
+            ),
+        ],
       ),
-      body: Obx(() {
-        if (controller.isLoading.value) {
-          return const AppLoadingState();
-        }
-        if (controller.hasError.value) {
-          return AppErrorState(
-            message: 'error_retry'.tr,
-            onRetry: controller.fetchCategories,
-          );
-        }
-        if (controller.categories.isEmpty) {
-          return AppEmptyState(
-            icon: Icons.category_outlined,
-            title: 'no_categories'.tr,
-          );
-        }
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: controller.categories.length,
-          itemBuilder: (context, index) {
-            final cat = controller.categories[index];
-            return _CategoryAccordionTile(cat: cat, controller: controller);
-          },
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _isSearching ? _buildSearchBody() : _buildCategoryList(),
+          _buildBrandsTab(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabPill(int tabIndex, String label, int activeIndex) {
+    final isActive = activeIndex == tabIndex;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _tabController.animateTo(tabIndex),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Gilroy',
+                color: isActive ? AppColors.white : Colors.black54,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBrandsTab() {
+    if (_isBrandsLoading) return const AppLoadingState();
+    if (_hasBrandsError) {
+      return AppErrorState(
+        message: 'error_retry'.tr,
+        onRetry: _fetchBrands,
+      );
+    }
+    if (_brands.isEmpty) {
+      return AppEmptyState(
+        icon: Icons.storefront_outlined,
+        title: 'brands'.tr,
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
+      itemCount: _brands.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 0.88,
+      ),
+      itemBuilder: (context, index) {
+        final brand = _brands[index];
+        return GestureDetector(
+          onTap: () => Nav.push(
+            context,
+            () => CategoryDetailScreen(
+              categoryName: brand.localizedName,
+              brandId: brand.id,
+            ),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFEDEDED)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                    child: Container(
+                      color: const Color(0xFFFAFAFA),
+                      padding: const EdgeInsets.all(10),
+                      child: AppNetworkImage(
+                        url: brand.icon,
+                        fit: BoxFit.contain,
+                        backgroundColor: const Color(0xFFFAFAFA),
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF7F7F7),
+                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(14)),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  child: Text(
+                    brand.localizedName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'Gilroy',
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
-      }),
+      },
+    );
+  }
+
+  Widget _buildHitAvatar(_SearchHit hit) {
+    final imageUrl = hit.isCategory ? hit.category!.image : (hit.subCategory!.image ?? hit.parentCategory?.image);
+
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: imageUrl != null
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: AppNetworkImage(
+                url: imageUrl,
+                fit: BoxFit.contain,
+              ),
+            )
+          : Icon(
+              hit.isCategory ? Icons.category_outlined : Icons.subdirectory_arrow_right_rounded,
+              size: 20,
+              color: AppColors.primary,
+            ),
+    );
+  }
+
+  Widget _buildCategoryList() {
+    return Obx(() {
+      if (_ctrl.isLoading.value) return const AppLoadingState();
+      if (_ctrl.hasError.value) {
+        return AppErrorState(
+          message: 'error_retry'.tr,
+          onRetry: _ctrl.fetchCategories,
+        );
+      }
+      if (_ctrl.categories.isEmpty) {
+        return AppEmptyState(
+          icon: Icons.category_outlined,
+          title: 'no_categories'.tr,
+        );
+      }
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: _ctrl.categories.length,
+        itemBuilder: (context, index) {
+          final cat = _ctrl.categories[index];
+          return _CategoryAccordionTile(cat: cat, controller: _ctrl);
+        },
+      );
+    });
+  }
+
+  Widget _buildSearchBody() {
+    if (_searchCtrl.text.trim().isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_rounded, size: 52, color: Colors.grey.shade300),
+            const SizedBox(height: 12),
+            Text(
+              'search_category'.tr,
+              style: TextStyle(
+                color: Colors.grey.shade400,
+                fontSize: 15,
+                fontFamily: 'Gilroy',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_hits.isEmpty) {
+      return AppEmptyState(
+        icon: Icons.search_off_rounded,
+        title: 'no_results'.tr,
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      itemCount: _hits.length,
+      itemBuilder: (context, index) {
+        final hit = _hits[index];
+        return GestureDetector(
+          onTap: () {
+            if (hit.isCategory) {
+              Nav.push(
+                context,
+                () => CategoryDetailScreen(
+                  categoryId: hit.category!.id,
+                  categoryName: hit.category!.localizedName,
+                ),
+              );
+            } else {
+              Nav.push(
+                context,
+                () => CategoryDetailScreen(
+                  categoryId: hit.parentCategory?.id,
+                  categoryName: hit.parentCategory?.localizedName ?? hit.subCategory!.localizedName,
+                  initialSubCategoryId: hit.subCategory!.id,
+                  initialSubCategoryName: hit.subCategory!.localizedName,
+                ),
+              );
+            }
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F7F7),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                _buildHitAvatar(hit),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hit.displayName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Gilroy',
+                          color: Colors.black87,
+                        ),
+                      ),
+                      if (!hit.isCategory && hit.parentCategory != null)
+                        Text(
+                          hit.parentCategory!.localizedName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
+                            fontFamily: 'Gilroy',
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: Colors.grey),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -122,13 +566,14 @@ class _CategoryAccordionTile extends StatelessWidget {
                     width: 30,
                     height: 30,
                     decoration: BoxDecoration(
-                      color: isExpanded ? const Color(0xFF1D1B20) : const Color(0xFFF0F0F0),
+                      color: isExpanded ? AppColors.primary : AppColors.greyBgColor,
+                      // color: Colors.red,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       isExpanded ? Icons.remove : Icons.add,
                       size: 18,
-                      color: isExpanded ? Colors.white : Colors.black87,
+                      color: isExpanded ? AppColors.white : AppColors.accent,
                     ),
                   ),
                 ],
@@ -157,7 +602,8 @@ class _CategoryAccordionTile extends StatelessWidget {
                 child: Column(
                   children: subCategories.map((sub) {
                     return GestureDetector(
-                      onTap: () => Get.to(
+                      onTap: () => Nav.push(
+                        context,
                         () => CategoryDetailScreen(
                           categoryId: cat.id,
                           categoryName: cat.localizedName,

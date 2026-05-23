@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:atlas/utils/nav.dart';
 import 'package:iconly/iconly.dart';
 import 'package:lottie/lottie.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
@@ -7,18 +8,39 @@ import 'package:atlas/modules/product_detail/bindings/product_detail_binding.dar
 import 'package:atlas/modules/product_detail/views/product_detail_screen.dart';
 import 'package:atlas/widgets/product_card.dart';
 
-class FavoritesScreen extends GetView<FavoritesController> {
-  const FavoritesScreen({super.key});
+class FavoritesScreen extends StatefulWidget {
+  const FavoritesScreen({super.key, required this.fromBottomNavBar});
+  final bool fromBottomNavBar;
+
+  @override
+  State<FavoritesScreen> createState() => _FavoritesScreenState();
+}
+
+class _FavoritesScreenState extends State<FavoritesScreen> {
+  late final FavoritesController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.find<FavoritesController>();
+    // Refresh favorites when screen is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('[FavoritesScreen] Screen opened, refreshing favorites...');
+      controller.refresh();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(IconlyLight.arrow_left_circle, color: Colors.black),
-          onPressed: () => Get.back(),
-        ),
+        leading: widget.fromBottomNavBar == false
+            ? IconButton(
+                icon: const Icon(IconlyLight.arrow_left_circle, color: Colors.black),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : const SizedBox.shrink(),
         title: Text(
           'favorites'.tr,
           style: const TextStyle(
@@ -48,11 +70,13 @@ class FavoritesScreen extends GetView<FavoritesController> {
       if (controller.favoriteItems.isEmpty) {
         return Padding(padding: const EdgeInsets.only(left: 40, right: 40), child: _buildEmptyState());
       }
+      final screenWidth = MediaQuery.of(context).size.width;
+      final isTablet = screenWidth >= 600;
       return GridView.builder(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.62,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: isTablet ? 4 : 2,
+          childAspectRatio: isTablet ? 0.72 : 0.62,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
         ),
@@ -67,7 +91,8 @@ class FavoritesScreen extends GetView<FavoritesController> {
             imageUrl: product['imageUrl'] as String,
             price: (product['price'] is int) ? (product['price'] as int).toDouble() : (product['price'] as double),
             rating: (product['rating'] ?? 0.0) as double,
-            onTap: () => Get.to(
+            onTap: () => Nav.push(
+              context,
               () => ProductDetailScreen(
                 productId: int.tryParse(product['id']?.toString() ?? '') ?? 0,
                 title: title,

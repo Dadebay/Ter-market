@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
+import 'package:get/get.dart' as getx;
 import 'package:get_storage/get_storage.dart';
+import 'package:atlas/modules/profile/controllers/language_controller.dart';
 
 class ApiClient {
   static const String baseUrl = 'http://216.250.11.77:7000/api/';
@@ -38,6 +40,18 @@ class _AppInterceptor extends Interceptor {
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
+
+    // Add language header
+    try {
+      final langController = getx.Get.find<LanguageController>();
+      final lang = langController.selectedLanguage.value;
+      options.headers['Accept-Language'] = lang;
+    } catch (_) {
+      // If LanguageController is not initialized, use stored language or default
+      final lang = _storage.read<String>('langCode') ?? 'tk';
+      options.headers['Accept-Language'] = lang;
+    }
+
     handler.next(options);
   }
 

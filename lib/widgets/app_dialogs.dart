@@ -15,7 +15,11 @@ class AppDialogs {
     required IconData icon,
     Color iconColor = const Color(0xFF22B241),
   }) {
-    Get.closeAllSnackbars();
+    try {
+      Get.closeAllSnackbars();
+    } catch (_) {
+      // Ignore snackbar disposal errors
+    }
     Get.showSnackbar(
       GetSnackBar(
         snackPosition: SnackPosition.BOTTOM,

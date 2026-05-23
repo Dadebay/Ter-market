@@ -9,69 +9,137 @@ import 'package:atlas/modules/category/views/category_screen.dart';
 import 'package:atlas/modules/favorites/views/favorites_screen.dart';
 import 'package:atlas/modules/cart/views/cart_screen.dart';
 import 'package:atlas/modules/profile/views/profile_screen.dart';
+import 'package:iconly/iconly.dart';
+import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 
-class MainScreen extends GetView<MainController> {
+class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Obx(() => IndexedStack(
-            index: controller.currentIndex.value,
-            children: [
-              HomeScreen(),
-              CategoryScreen(),
-              CartScreen(),
-              ProfileScreen(),
-            ],
-          )),
-      bottomNavigationBar: Obx(() {
-        final cartController = Get.find<CartController>();
-        int cartCount = cartController.cartItems.length;
+  State<MainScreen> createState() => _MainScreenState();
+}
 
-        return BottomNavigationBar(
-          currentIndex: controller.currentIndex.value,
-          onTap: controller.changeIndex,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: Colors.grey,
-          showUnselectedLabels: true,
-          type: BottomNavigationBarType.fixed,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 10),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 10),
-          items: [
-            BottomNavigationBarItem(
-              icon: const HugeIcon(icon: HugeIcons.strokeRoundedHome09, color: Colors.grey),
-              activeIcon: const HugeIcon(icon: HugeIcons.strokeRoundedHome09, color: AppColors.primary),
-              label: 'home'.tr, // <--- .tr goşuldy
-            ),
-            BottomNavigationBarItem(
-              icon: const HugeIcon(icon: HugeIcons.strokeRoundedGridView, color: Colors.grey),
-              activeIcon: const HugeIcon(icon: HugeIcons.strokeRoundedGridView, color: AppColors.primary),
-              label: 'category'.tr, // <--- .tr goşuldy
-            ),
-            BottomNavigationBarItem(
-              icon: Badge(
-                label: Text(cartCount.toString()),
-                isLabelVisible: cartCount > 0,
-                backgroundColor: Colors.red,
-                child: const HugeIcon(icon: HugeIcons.strokeRoundedShoppingCart01, color: Colors.grey),
-              ),
-              activeIcon: Badge(
-                label: Text(cartCount.toString()),
-                isLabelVisible: cartCount > 0,
-                backgroundColor: Colors.red,
-                child: const HugeIcon(icon: HugeIcons.strokeRoundedShoppingCart01, color: AppColors.primary),
-              ),
-              label: 'cart'.tr, // <--- .tr goşuldy
-            ),
-            BottomNavigationBarItem(
-              icon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, color: Colors.grey),
-              activeIcon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, color: AppColors.primary),
-              label: 'profile'.tr, // <--- .tr goşuldy
-            ),
-          ],
-        );
-      }),
+class _MainScreenState extends State<MainScreen> {
+  late final PersistentTabController _tabController;
+  late final MainController _mainCtrl;
+  Worker? _indexWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _mainCtrl = Get.find<MainController>();
+    _tabController = PersistentTabController(initialIndex: 0);
+
+    // Sync MainController.currentIndex → PersistentTabController
+    _indexWorker = ever(_mainCtrl.currentIndex, (int idx) {
+      if (mounted && _tabController.index != idx) {
+        setState(() {
+          _tabController.jumpToTab(idx);
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _indexWorker?.dispose();
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onTabSelected(int index) {
+    if (_tabController.index == index) return;
+    setState(() {
+      _tabController.jumpToTab(index);
+      _mainCtrl.currentIndex.value = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PersistentTabView.custom(
+      context,
+      controller: _tabController,
+      itemCount: 5,
+      backgroundColor: Colors.white,
+      screens: [
+        CustomNavBarScreen(screen: HomeScreen()),
+        CustomNavBarScreen(screen: CategoryScreen()),
+        CustomNavBarScreen(screen: CartScreen()),
+        CustomNavBarScreen(screen: FavoritesScreen(fromBottomNavBar: true)),
+        CustomNavBarScreen(screen: ProfileScreen()),
+      ],
+      customWidget: _MainNavBar(
+        selectedIndex: _tabController.index,
+        onItemSelected: _onTabSelected,
+      ),
     );
+  }
+}
+
+class _MainNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onItemSelected;
+
+  const _MainNavBar({
+    required this.selectedIndex,
+    required this.onItemSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cartController = Get.find<CartController>();
+    return Obx(() {
+      final cartCount = cartController.cartItems.length;
+      return BottomNavigationBar(
+        currentIndex: selectedIndex,
+        onTap: onItemSelected,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        elevation: 8,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 10),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 10),
+        items: [
+          BottomNavigationBarItem(
+            icon: const Icon(IconlyLight.home, color: Colors.grey),
+            activeIcon: const Icon(IconlyBold.home, color: AppColors.primary),
+            label: 'home'.tr,
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(IconlyLight.category, color: Colors.grey),
+            activeIcon: const Icon(IconlyBold.category, color: AppColors.primary),
+            label: 'category'.tr,
+          ),
+          BottomNavigationBarItem(
+            icon: Badge(
+              label: Text(cartCount.toString()),
+              isLabelVisible: cartCount > 0,
+              backgroundColor: Colors.red,
+              child: const Icon(IconlyLight.bag, color: Colors.grey),
+            ),
+            activeIcon: Badge(
+              label: Text(cartCount.toString()),
+              isLabelVisible: cartCount > 0,
+              backgroundColor: Colors.red,
+              child: const Icon(IconlyBold.bag, color: AppColors.primary),
+            ),
+            label: 'cart'.tr,
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(IconlyLight.heart, color: Colors.grey),
+            activeIcon: const Icon(IconlyBold.heart, color: AppColors.primary),
+            label: 'favorites'.tr,
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(IconlyLight.profile, color: Colors.grey),
+            activeIcon: const Icon(IconlyBold.profile, color: AppColors.primary),
+            label: 'profile'.tr,
+          ),
+        ],
+      );
+    });
   }
 }

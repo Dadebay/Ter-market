@@ -1,12 +1,15 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:atlas/themes/colors.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/modules/orders/controllers/order_controller.dart';
 import 'package:atlas/modules/profile/controllers/language_controller.dart';
+import 'package:atlas/utils/price_format.dart';
 import 'package:atlas/models/order_model.dart';
 import 'package:atlas/widgets/app_dialogs.dart';
 import 'package:atlas/widgets/app_loading_state.dart';
@@ -29,11 +32,19 @@ class _OrderScreenState extends State<OrderScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+  final _phoneFocusNode = FocusNode();
+  bool _phoneHasFocus = false;
   PaymentMethod? _selectedPayment;
   DeliveryType? _selectedDeliveryType;
   DeliveryTime? _selectedDeliveryTime;
   RegionModel? _selectedRegion;
   bool _isExpressDelivery = false;
+  bool _isDeliveryTomorrow = false;
+
+  bool get _isOnlinePayment {
+    final name = _selectedPayment?.nameTk.toLowerCase() ?? '';
+    return name.contains('online') || name.contains('onlaýn') || name.contains('onlayn');
+  }
 
   late OrderController _orderCtrl;
   late CartController _cartCtrl;
@@ -47,7 +58,13 @@ class _OrderScreenState extends State<OrderScreen> {
       _orderCtrl.fetchPaymentMethods();
     }
     if (_orderCtrl.deliveryTypes.isEmpty) {
-      _orderCtrl.fetchDeliveryTypes();
+      _orderCtrl.fetchDeliveryTypes().then((_) {
+        if (_selectedDeliveryType == null && _orderCtrl.deliveryTypes.isNotEmpty) {
+          setState(() => _selectedDeliveryType = _orderCtrl.deliveryTypes.first);
+        }
+      });
+    } else if (_selectedDeliveryType == null && _orderCtrl.deliveryTypes.isNotEmpty) {
+      _selectedDeliveryType = _orderCtrl.deliveryTypes.first;
     }
     if (_orderCtrl.deliveryTimes.isEmpty) {
       _orderCtrl.fetchDeliveryTimes();
@@ -62,11 +79,15 @@ class _OrderScreenState extends State<OrderScreen> {
     _phoneCtrl.selection = TextSelection.fromPosition(
       TextPosition(offset: _phoneCtrl.text.length),
     );
+    _phoneFocusNode.addListener(() {
+      setState(() => _phoneHasFocus = _phoneFocusNode.hasFocus);
+    });
   }
 
   @override
   void dispose() {
     _phoneCtrl.dispose();
+    _phoneFocusNode.dispose();
     _addressCtrl.dispose();
     super.dispose();
   }
@@ -86,6 +107,7 @@ class _OrderScreenState extends State<OrderScreen> {
     required Function(T) onItemSelected,
     required Widget Function(T) itemBuilder,
   }) {
+    FocusScope.of(context).unfocus();
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -143,74 +165,8 @@ class _OrderScreenState extends State<OrderScreen> {
     );
   }
 
-  void _showDeliveryTimeDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'delivery_time'.tr,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'Gilroy',
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close_rounded),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Flexible(
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 2.0,
-                  ),
-                  itemCount: _orderCtrl.deliveryTimes.length,
-                  itemBuilder: (context, index) {
-                    final item = _orderCtrl.deliveryTimes[index];
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedDeliveryTime = item);
-                        Navigator.pop(context);
-                      },
-                      child: _DeliveryTimeGridTile(
-                        time: item,
-                        isSelected: _selectedDeliveryTime?.id == item.id,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showRegionDialogWithSearch() {
+    FocusScope.of(context).unfocus();
     showDialog(
       context: context,
       builder: (context) => _RegionSearchDialog(
@@ -228,11 +184,28 @@ class _OrderScreenState extends State<OrderScreen> {
       title: 'payment_method'.tr,
       items: _orderCtrl.paymentMethods,
       selectedItem: _selectedPayment,
-      onItemSelected: (item) => setState(() => _selectedPayment = item),
+      onItemSelected: (item) {
+        setState(() => _selectedPayment = item);
+        _orderCtrl.selectedBank.value = null;
+      },
       itemBuilder: (item) => _PaymentTile(
         method: item,
         lang: _lang,
         isSelected: _selectedPayment?.id == item.id,
+      ),
+    );
+  }
+
+  void _showBankDialog() {
+    FocusScope.of(context).unfocus();
+    showDialog(
+      context: context,
+      builder: (ctx) => _BankSelectDialog(
+        banks: BankOption.all,
+        selectedBank: _orderCtrl.selectedBank.value,
+        onConfirm: (bank) {
+          _orderCtrl.selectedBank.value = bank;
+        },
       ),
     );
   }
@@ -253,17 +226,19 @@ class _OrderScreenState extends State<OrderScreen> {
       );
       return;
     }
-    if (_selectedDeliveryType == null) {
+
+    if (_isOnlinePayment && _orderCtrl.selectedBank.value == null) {
       Get.snackbar(
         'error'.tr,
-        'select_delivery_type'.tr,
+        'select_bank'.tr,
         backgroundColor: Colors.red.shade50,
         colorText: Colors.red,
         snackPosition: SnackPosition.TOP,
       );
       return;
     }
-    if (_selectedDeliveryTime == null) {
+
+    if (!_isExpressDelivery && _selectedDeliveryTime == null) {
       Get.snackbar(
         'error'.tr,
         'select_delivery_time'.tr,
@@ -291,12 +266,19 @@ class _OrderScreenState extends State<OrderScreen> {
     }
 
     final count = widget.cartItems.fold<int>(0, (s, item) => s + ((item['quantity'] ?? 1) as int));
+    String? deliveryDate;
+    if (!_isExpressDelivery) {
+      final base = _isDeliveryTomorrow ? DateTime.now().add(const Duration(days: 1)) : DateTime.now();
+      deliveryDate = '${base.year.toString().padLeft(4, '0')}-${base.month.toString().padLeft(2, '0')}-${base.day.toString().padLeft(2, '0')}';
+    }
     final success = await _orderCtrl.placeOrder(
       phoneNumber: _phoneCtrl.text.trim(),
       address: _addressCtrl.text.trim(),
       paymentStatus: _selectedPayment!.localizedName('tk'),
       deliveryTypeId: _selectedDeliveryType?.id,
-      deliveryTimeId: _selectedDeliveryTime?.id,
+      deliveryTimeId: _isExpressDelivery ? null : _selectedDeliveryTime?.id,
+      isExpress: _isExpressDelivery,
+      deliveryDate: deliveryDate,
       regionId: _selectedRegion?.id,
       cartItems: widget.cartItems,
     );
@@ -305,9 +287,15 @@ class _OrderScreenState extends State<OrderScreen> {
       if (mounted) Navigator.of(context).pop();
       AppDialogs.showTopSuccessSnackbar(
         title: 'order_success'.tr,
-        subtitle: '$count ${'items'.tr} • ${widget.total.toStringAsFixed(0)} TMT',
+        subtitle: '$count ${'items'.tr} • ${fmtPrice(widget.total)} TMT',
         icon: HugeIcons.strokeRoundedShoppingBag01,
       );
+      if (_isOnlinePayment) {
+        final orderId = _orderCtrl.orders.isNotEmpty ? _orderCtrl.orders.first.id : null;
+        if (orderId != null) {
+          await _orderCtrl.initiateOnlinePayment(orderId);
+        }
+      }
     } else {
       Get.snackbar(
         'error'.tr,
@@ -323,181 +311,249 @@ class _OrderScreenState extends State<OrderScreen> {
   Widget build(BuildContext context) {
     final itemCount = widget.cartItems.fold<int>(0, (s, item) => s + ((item['quantity'] ?? 1) as int));
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: HugeIcon(
-            icon: HugeIcons.strokeRoundedArrowLeft01,
-            color: AppColors.primary,
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: const Color(0xFFF8F8F8),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: IconButton(
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowLeft01,
+                color: AppColors.primary,
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: Text(
+              'confirm_order'.tr,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontFamily: 'Gilroy',
+                fontSize: 18,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
           ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'confirm_order'.tr,
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-            fontFamily: 'Gilroy',
-            fontSize: 18,
-            color: Color(0xFF1A1A1A),
-          ),
-        ),
-      ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Order summary card
-              _OrderSummaryCard(
-                itemCount: itemCount,
-                total: widget.total,
-                cartItems: widget.cartItems,
-              ),
-              const SizedBox(height: 20),
+          body: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Order summary card
+                  _OrderSummaryCard(
+                    itemCount: itemCount,
+                    total: widget.total,
+                    cartItems: widget.cartItems,
+                  ),
+                  const SizedBox(height: 20),
 
-              // Contact info section
-              _SectionLabel(label: 'contact_info'.tr),
-              const SizedBox(height: 10),
-              _buildTextField(
-                controller: _phoneCtrl,
-                label: 'phone_number'.tr,
-                hint: '+993 61 xxxxxx',
-                keyboardType: TextInputType.phone,
-                prefixIcon: HugeIcons.strokeRoundedCall,
-                validator: (v) => (v == null || v.isEmpty) ? 'field_required'.tr : null,
-              ),
-              const SizedBox(height: 12),
-              _buildTextField(
-                controller: _addressCtrl,
-                label: 'delivery_address'.tr,
-                hint: 'address_hint'.tr,
-                prefixIcon: HugeIcons.strokeRoundedLocation01,
-                maxLines: 2,
-                validator: (v) => (v == null || v.isEmpty) ? 'field_required'.tr : null,
-              ),
-              const SizedBox(height: 20),
-
-              // Payment method section
-              _SectionLabel(label: 'payment_method'.tr),
-              const SizedBox(height: 10),
-              Obx(() {
-                if (_orderCtrl.isLoadingPayments.value) {
-                  return const Center(
-                      child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: AppLoadingState(),
-                  ));
-                }
-                if (_orderCtrl.paymentMethods.isEmpty) {
-                  return _buildRetryPayments();
-                }
-                return _SelectionTile(
-                  icon: HugeIcons.strokeRoundedMoney01,
-                  label: _selectedPayment?.localizedName(_lang) ?? 'select_payment_method'.tr,
-                  isSelected: _selectedPayment != null,
-                  onTap: () => _showPaymentDialog(),
-                );
-              }),
-              const SizedBox(height: 20),
-
-              // Delivery type section - Hidden when region is selected
-              // if (_selectedRegion == null) ...[
-              //   _SectionLabel(label: 'delivery_type'.tr),
-              //   const SizedBox(height: 10),
-              //   Obx(() {
-              //     if (_orderCtrl.isLoadingDeliveryTypes.value) {
-              //       return const Center(
-              //           child: Padding(
-              //         padding: EdgeInsets.all(16),
-              //         child: AppLoadingState(),
-              //       ));
-              //     }
-              //     if (_orderCtrl.deliveryTypes.isEmpty) return const SizedBox.shrink();
-              //     return _SelectionTile(
-              //       icon: HugeIcons.strokeRoundedDeliveryBox01,
-              //       label: _selectedDeliveryType?.localizedName(_lang) ?? 'select_delivery_type'.tr,
-              //       isSelected: _selectedDeliveryType != null,
-              //       onTap: () => _showSelectionDialog<DeliveryType>(
-              //         title: 'delivery_type'.tr,
-              //         items: _orderCtrl.deliveryTypes,
-              //         selectedItem: _selectedDeliveryType,
-              //         onItemSelected: (item) => setState(() => _selectedDeliveryType = item),
-              //         itemBuilder: (item) => _DeliveryTypeListTile(
-              //           type: item,
-              //           lang: _lang,
-              //           isSelected: _selectedDeliveryType?.id == item.id,
-              //         ),
-              //       ),
-              //     );
-              //   }),
-              //   const SizedBox(height: 20),
-              // ],
-
-              // Region section
-              _SectionLabel(label: 'region'.tr),
-              const SizedBox(height: 10),
-              Obx(() {
-                if (_orderCtrl.isLoadingRegions.value) {
-                  return const Center(
-                      child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: AppLoadingState(),
-                  ));
-                }
-                if (_orderCtrl.regions.isEmpty) return const SizedBox.shrink();
-                return Column(
-                  children: [
-                    _SelectionTile(
-                      icon: HugeIcons.strokeRoundedLocation01,
-                      label: _selectedRegion?.name ?? 'select_region'.tr,
-                      isSelected: _selectedRegion != null,
-                      onTap: () => _showRegionDialog(),
-                    ),
-                    if (_selectedRegion != null) ...[
-                      const SizedBox(height: 10),
-                      _DeliveryTypeRow(
-                        isExpress: _isExpressDelivery,
-                        standardPrice: _selectedRegion!.price,
-                        expressPrice: _selectedRegion!.exPrice,
-                        onChanged: (val) => setState(() => _isExpressDelivery = val),
-                      ),
+                  // Contact info section
+                  _SectionLabel(label: 'contact_info'.tr),
+                  const SizedBox(height: 10),
+                  _buildTextField(
+                    controller: _phoneCtrl,
+                    focusNode: _phoneFocusNode,
+                    label: 'phone_number'.tr,
+                    hint: '+993 61 xxxxxx',
+                    keyboardType: TextInputType.phone,
+                    prefixIcon: HugeIcons.strokeRoundedCall,
+                    validator: (v) {
+                      const prefix = '+993 ';
+                      if (v == null || v.trim().isEmpty) return 'field_required'.tr;
+                      final digits = v.startsWith(prefix) ? v.substring(prefix.length).replaceAll(RegExp(r'[^0-9]'), '') : v.replaceAll(RegExp(r'[^0-9]'), '');
+                      if (digits.length < 8) return 'invalid_phone_number'.tr;
+                      return null;
+                    },
+                    inputFormatters: [
+                      TextInputFormatter.withFunction((oldValue, newValue) {
+                        const prefix = '+993 ';
+                        if (!newValue.text.startsWith(prefix)) return oldValue;
+                        final afterPrefix = newValue.text.substring(prefix.length);
+                        final digits = afterPrefix.replaceAll(RegExp(r'[^0-9]'), '');
+                        if (digits.length > 8) return oldValue;
+                        return newValue;
+                      }),
                     ],
-                  ],
-                );
-              }),
-              const SizedBox(height: 20),
+                  ),
+                  const SizedBox(height: 20),
 
-              // Delivery time section
-              _SectionLabel(label: 'delivery_time'.tr),
-              const SizedBox(height: 10),
-              Obx(() {
-                if (_orderCtrl.isLoadingDeliveryTimes.value) {
-                  return const Center(
-                      child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: AppLoadingState(),
-                  ));
-                }
-                if (_orderCtrl.deliveryTimes.isEmpty) return const SizedBox.shrink();
-                return _SelectionTile(
-                  icon: HugeIcons.strokeRoundedClock01,
-                  label: _selectedDeliveryTime?.displayTime ?? 'select_delivery_time'.tr,
-                  isSelected: _selectedDeliveryTime != null,
-                  onTap: _showDeliveryTimeDialog,
-                );
-              }),
-              const SizedBox(height: 32),
-            ],
+                  // Payment method section
+                  _SectionLabel(label: 'payment_method'.tr),
+                  const SizedBox(height: 10),
+                  Obx(() {
+                    if (_orderCtrl.isLoadingPayments.value) {
+                      return const Center(
+                          child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: AppLoadingState(),
+                      ));
+                    }
+                    if (_orderCtrl.paymentMethods.isEmpty) {
+                      return _buildRetryPayments();
+                    }
+                    return _SelectionTile(
+                      icon: HugeIcons.strokeRoundedMoney01,
+                      label: _selectedPayment?.localizedName(_lang) ?? 'select_payment_method'.tr,
+                      isSelected: _selectedPayment != null,
+                      onTap: () => _showPaymentDialog(),
+                    );
+                  }),
+                  // Bank selection — only when online payment is selected
+                  if (_isOnlinePayment) ...[
+                    const SizedBox(height: 12),
+                    Obx(() => _BankTile(
+                          selectedBank: _orderCtrl.selectedBank.value,
+                          onTap: _showBankDialog,
+                        )),
+                  ],
+                  const SizedBox(height: 20),
+
+                  // Delivery type section - Hidden when region is selected
+                  // if (_selectedRegion == null) ...[
+                  //   _SectionLabel(label: 'delivery_type'.tr),
+                  //   const SizedBox(height: 10),
+                  //   Obx(() {
+                  //     if (_orderCtrl.isLoadingDeliveryTypes.value) {
+                  //       return const Center(
+                  //           child: Padding(
+                  //         padding: EdgeInsets.all(16),
+                  //         child: AppLoadingState(),
+                  //       ));
+                  //     }
+                  //     if (_orderCtrl.deliveryTypes.isEmpty) return const SizedBox.shrink();
+                  //     return _SelectionTile(
+                  //       icon: HugeIcons.strokeRoundedDeliveryBox01,
+                  //       label: _selectedDeliveryType?.localizedName(_lang) ?? 'select_delivery_type'.tr,
+                  //       isSelected: _selectedDeliveryType != null,
+                  //       onTap: () => _showSelectionDialog<DeliveryType>(
+                  //         title: 'delivery_type'.tr,
+                  //         items: _orderCtrl.deliveryTypes,
+                  //         selectedItem: _selectedDeliveryType,
+                  //         onItemSelected: (item) => setState(() => _selectedDeliveryType = item),
+                  //         itemBuilder: (item) => _DeliveryTypeListTile(
+                  //           type: item,
+                  //           lang: _lang,
+                  //           isSelected: _selectedDeliveryType?.id == item.id,
+                  //         ),
+                  //       ),
+                  //     );
+                  //   }),
+                  //   const SizedBox(height: 20),
+                  // ],
+
+                  // Region section
+                  _SectionLabel(label: 'region'.tr),
+                  const SizedBox(height: 10),
+                  Obx(() {
+                    if (_orderCtrl.isLoadingRegions.value) {
+                      return const Center(
+                          child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: AppLoadingState(),
+                      ));
+                    }
+                    if (_orderCtrl.regions.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      children: [
+                        _SelectionTile(
+                          icon: HugeIcons.strokeRoundedLocation01,
+                          label: _selectedRegion?.name ?? 'select_region'.tr,
+                          isSelected: _selectedRegion != null,
+                          onTap: () => _showRegionDialog(),
+                        ),
+                        if (_selectedRegion != null) ...[
+                          const SizedBox(height: 10),
+                          _DeliveryTypeRow(
+                            isExpress: _isExpressDelivery,
+                            standardPrice: _selectedRegion!.price,
+                            expressPrice: _selectedRegion!.exPrice,
+                            onChanged: (val) => setState(() {
+                              _isExpressDelivery = val;
+                              if (val) _selectedDeliveryTime = null;
+                            }),
+                          ),
+                        ],
+                      ],
+                    );
+                  }),
+                  const SizedBox(height: 12),
+
+                  // Address field — below region
+                  _buildTextField(
+                    controller: _addressCtrl,
+                    label: 'delivery_address'.tr,
+                    hint: 'address_hint'.tr,
+                    prefixIcon: HugeIcons.strokeRoundedLocation01,
+                    maxLines: 2,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'field_required'.tr : null,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Delivery time section — hidden when express is selected
+                  if (!_isExpressDelivery) ...[
+                    _SectionLabel(label: 'delivery_time'.tr),
+                    const SizedBox(height: 10),
+                    Obx(() {
+                      if (_orderCtrl.isLoadingDeliveryTimes.value) {
+                        return const Center(
+                            child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: AppLoadingState(),
+                        ));
+                      }
+                      if (_orderCtrl.deliveryTimes.isEmpty) return const SizedBox.shrink();
+                      return _DeliveryDateTimePicker(
+                        times: _orderCtrl.deliveryTimes,
+                        selectedTime: _selectedDeliveryTime,
+                        isTomorrow: _isDeliveryTomorrow,
+                        onDayChanged: (val) => setState(() {
+                          _isDeliveryTomorrow = val;
+                          _selectedDeliveryTime = null;
+                        }),
+                        onTimeSelected: (t) => setState(() => _selectedDeliveryTime = t),
+                      );
+                    }),
+                    const SizedBox(height: 20),
+                  ],
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
           ),
+          bottomNavigationBar: _buildBottomBar(itemCount),
         ),
-      ),
-      bottomNavigationBar: _buildBottomBar(itemCount),
+        if (_phoneHasFocus)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            child: Container(
+              color: const Color(0xFFD1D5DB),
+              height: 44,
+              child: Row(
+                children: [
+                  const Spacer(),
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    onPressed: () => _phoneFocusNode.unfocus(),
+                    child: const Text(
+                      'Done',
+                      style: TextStyle(
+                        color: Color(0xFF007AFF),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -537,9 +593,13 @@ class _OrderScreenState extends State<OrderScreen> {
     required String label,
     required String hint,
     required IconData prefixIcon,
+    FocusNode? focusNode,
     TextInputType keyboardType = TextInputType.text,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onFieldSubmitted,
     int maxLines = 1,
     String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -555,9 +615,14 @@ class _OrderScreenState extends State<OrderScreen> {
       ),
       child: TextFormField(
         controller: controller,
+        focusNode: focusNode,
         keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        onFieldSubmitted: onFieldSubmitted,
+        onTapOutside: (_) => FocusScope.of(context).unfocus(),
         maxLines: maxLines,
         validator: validator,
+        inputFormatters: inputFormatters,
         style: const TextStyle(
           fontFamily: 'Gilroy',
           fontWeight: FontWeight.w500,
@@ -629,7 +694,7 @@ class _OrderScreenState extends State<OrderScreen> {
                   ),
                 ),
                 Text(
-                  '${widget.total.toStringAsFixed(0)} TMT',
+                  '${fmtPrice(widget.total)} TMT',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -678,7 +743,7 @@ class _OrderScreenState extends State<OrderScreen> {
                     ],
                   ),
                   Text(
-                    '${deliveryFee.toStringAsFixed(0)} TMT',
+                    '${fmtPrice(deliveryFee)} TMT',
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -706,7 +771,7 @@ class _OrderScreenState extends State<OrderScreen> {
                   ),
                 ),
                 Text(
-                  '${grandTotal.toStringAsFixed(0)} TMT',
+                  '${fmtPrice(grandTotal)} TMT',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
@@ -816,7 +881,7 @@ class _OrderSummaryCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${total.toStringAsFixed(0)} TMT',
+                      '${fmtPrice(total)} TMT',
                       style: const TextStyle(
                         fontFamily: 'Gilroy',
                         fontWeight: FontWeight.w700,
@@ -879,7 +944,7 @@ class _CartItemRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            '${(price * qty).toStringAsFixed(0)} TMT',
+            '${fmtPrice(price * qty)} TMT',
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -1176,7 +1241,10 @@ class _SelectionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        FocusScope.of(context).unfocus();
+        onTap();
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
@@ -1282,6 +1350,8 @@ class _DeliveryTypeRow extends StatelessWidget {
                       Expanded(
                         child: Text(
                           'standard_delivery'.tr,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -1294,7 +1364,7 @@ class _DeliveryTypeRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${standardPrice.toStringAsFixed(0)} TMT',
+                    '${fmtPrice(standardPrice)} TMT',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
@@ -1336,21 +1406,21 @@ class _DeliveryTypeRow extends StatelessWidget {
                       Expanded(
                         child: Text(
                           'express_delivery'.tr,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             fontFamily: 'Gilroy',
                             color: isExpress ? AppColors.primary : const Color(0xFF8E8E93),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${expressPrice.toStringAsFixed(0)} TMT',
+                    '${fmtPrice(expressPrice)} TMT',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
@@ -1454,56 +1524,119 @@ class _RegionListTile extends StatelessWidget {
   }
 }
 
-class _DeliveryTimeGridTile extends StatelessWidget {
-  final DeliveryTime time;
-  final bool isSelected;
+// ─── Delivery Date + Time Picker ─────────────────────────────────────────────
 
-  const _DeliveryTimeGridTile({
-    required this.time,
-    required this.isSelected,
+class _DeliveryDateTimePicker extends StatelessWidget {
+  final List<DeliveryTime> times;
+  final DeliveryTime? selectedTime;
+  final bool isTomorrow;
+  final ValueChanged<bool> onDayChanged;
+  final ValueChanged<DeliveryTime> onTimeSelected;
+
+  const _DeliveryDateTimePicker({
+    required this.times,
+    required this.selectedTime,
+    required this.isTomorrow,
+    required this.onDayChanged,
+    required this.onTimeSelected,
   });
+
+  String _formatDate(DateTime d) => '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.all(8),
+    final today = DateTime.now();
+    final tomorrow = today.add(const Duration(days: 1));
+
+    return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isSelected ? AppColors.primary : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isSelected ? AppColors.primary : const Color(0xFFE8E8E8),
-          width: isSelected ? 2 : 1,
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: isSelected ? AppColors.primary.withOpacity(0.2) : Colors.black.withOpacity(0.03),
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          HugeIcon(
-            icon: HugeIcons.strokeRoundedClock01,
-            color: isSelected ? Colors.white : AppColors.primary,
-            size: 20,
+          // Day tabs
+          Row(
+            children: [
+              _DayTab(
+                label: 'date_today'.tr,
+                date: _formatDate(today),
+                isSelected: !isTomorrow,
+                onTap: () => onDayChanged(false),
+              ),
+              const SizedBox(width: 10),
+              _DayTab(
+                label: 'date_tomorrow'.tr,
+                date: _formatDate(tomorrow),
+                isSelected: isTomorrow,
+                onTap: () => onDayChanged(true),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            time.displayTime,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: 'Gilroy',
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              color: isSelected ? Colors.white : const Color(0xFF1A1A1A),
+          const SizedBox(height: 14),
+          // Time slots grid
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 2.8,
             ),
+            itemCount: times.length,
+            itemBuilder: (_, i) {
+              final t = times[i];
+              final sel = selectedTime?.id == t.id;
+              return GestureDetector(
+                onTap: () => onTimeSelected(t),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  decoration: BoxDecoration(
+                    color: sel ? AppColors.primary.withOpacity(0.08) : const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: sel ? AppColors.primary : const Color(0xFFE8E8E8),
+                      width: sel ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Radio<int>(
+                        value: t.id,
+                        groupValue: selectedTime?.id,
+                        activeColor: AppColors.primary,
+                        onChanged: (_) => onTimeSelected(t),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      Expanded(
+                        child: Text(
+                          t.displayTime,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Gilroy',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: sel ? AppColors.primary : const Color(0xFF1A1A1A),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -1511,7 +1644,65 @@ class _DeliveryTimeGridTile extends StatelessWidget {
   }
 }
 
-// ─── Region Search Dialog ────────────────────────────────────────────────────
+class _DayTab extends StatelessWidget {
+  final String label;
+  final String date;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _DayTab({
+    required this.label,
+    required this.date,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary.withOpacity(0.08) : const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? AppColors.primary : const Color(0xFFE8E8E8),
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Gilroy',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: isSelected ? AppColors.primary : const Color(0xFF1A1A1A),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                date,
+                style: TextStyle(
+                  fontFamily: 'Gilroy',
+                  fontWeight: FontWeight.w500,
+                  fontSize: 12,
+                  color: isSelected ? AppColors.primary : const Color(0xFF8E8E93),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Region Search Dialog ─────────────────────────────────────────────────────
 
 class _RegionSearchDialog extends StatefulWidget {
   final List<RegionModel> regions;
@@ -1644,6 +1835,222 @@ class _RegionSearchDialogState extends State<_RegionSearchDialog> {
                         );
                       },
                     ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Bank Tile (shows selected bank, opens dialog on tap) ────────────────────
+
+class _BankTile extends StatelessWidget {
+  final BankOption? selectedBank;
+  final VoidCallback onTap;
+
+  const _BankTile({required this.selectedBank, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selectedBank != null ? AppColors.primary : const Color(0xFFE8E8E8),
+            width: selectedBank != null ? 2 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: selectedBank != null ? AppColors.primary.withOpacity(0.08) : Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: selectedBank?.imagePath != null
+                  ? Image.asset(selectedBank!.imagePath!, fit: BoxFit.contain)
+                  : const Center(
+                      child: Icon(Icons.account_balance_rounded, color: Color(0xFF8E8E93), size: 22),
+                    ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                selectedBank != null ? selectedBank!.nameKey.tr : 'select_bank'.tr,
+                style: TextStyle(
+                  fontFamily: 'Gilroy',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: selectedBank != null ? const Color(0xFF1A1A1A) : const Color(0xFF8E8E93),
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: selectedBank != null ? AppColors.primary : const Color(0xFFB0B0B0),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Bank Select Dialog ───────────────────────────────────────────────────────
+
+class _BankSelectDialog extends StatefulWidget {
+  final List<BankOption> banks;
+  final BankOption? selectedBank;
+  final ValueChanged<BankOption> onConfirm;
+
+  const _BankSelectDialog({
+    required this.banks,
+    required this.selectedBank,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_BankSelectDialog> createState() => _BankSelectDialogState();
+}
+
+class _BankSelectDialogState extends State<_BankSelectDialog> {
+  BankOption? _temp;
+
+  @override
+  void initState() {
+    super.initState();
+    _temp = widget.selectedBank;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'select_bank'.tr,
+              style: const TextStyle(
+                fontFamily: 'Gilroy',
+                fontWeight: FontWeight.w800,
+                fontSize: 20,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...widget.banks.map((bank) {
+              final isSelected = _temp?.id == bank.id;
+              return GestureDetector(
+                onTap: () => setState(() => _temp = bank),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isSelected ? AppColors.primary : const Color(0xFFE8E8E8),
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F5F5),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: bank.imagePath != null
+                            ? Image.asset(bank.imagePath!, fit: BoxFit.contain)
+                            : const Center(
+                                child: Icon(Icons.account_balance_rounded, color: Color(0xFF8E8E93), size: 22),
+                              ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          bank.nameKey.tr,
+                          style: TextStyle(
+                            fontFamily: 'Gilroy',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            color: isSelected ? const Color(0xFF1A1A1A) : const Color(0xFF4A4A4A),
+                          ),
+                        ),
+                      ),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isSelected ? AppColors.primary : Colors.transparent,
+                          border: Border.all(
+                            color: isSelected ? AppColors.primary : const Color(0xFFD0D0D0),
+                            width: 2,
+                          ),
+                        ),
+                        child: isSelected
+                            ? const Icon(Icons.circle, color: Colors.white, size: 10)
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _temp == null
+                    ? null
+                    : () {
+                        widget.onConfirm(_temp!);
+                        Navigator.of(context).pop();
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  disabledBackgroundColor: AppColors.primary.withOpacity(0.4),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: Text(
+                  'continue'.tr,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    fontFamily: 'Gilroy',
+                  ),
+                ),
+              ),
             ),
           ],
         ),

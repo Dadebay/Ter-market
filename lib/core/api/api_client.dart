@@ -4,7 +4,8 @@ import 'package:get_storage/get_storage.dart';
 import 'package:atlas/modules/profile/controllers/language_controller.dart';
 
 class ApiClient {
-  static const String baseUrl = 'http://216.250.11.77:7000/api/';
+  static const String baseUrl = 'https://termarket.com.tm/api/';
+  static const String imgUrl = 'https://termarket.com.tm';
 
   static Dio? _instance;
 

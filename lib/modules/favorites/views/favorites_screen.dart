@@ -25,7 +25,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     controller = Get.find<FavoritesController>();
     // Refresh favorites when screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      print('[FavoritesScreen] Screen opened, refreshing favorites...');
       controller.refresh();
     });
   }
@@ -76,7 +75,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: isTablet ? 4 : 2,
-          childAspectRatio: isTablet ? 0.72 : 0.62,
+          childAspectRatio: isTablet ? 0.75 : 0.69,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
         ),

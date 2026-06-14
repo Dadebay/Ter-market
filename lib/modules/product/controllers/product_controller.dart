@@ -7,14 +7,17 @@ class ProductController extends GetxController {
 
   var discountedProducts = <ProductModel>[].obs;
   var newProducts = <ProductModel>[].obs;
+  var mostSoldProducts = <ProductModel>[].obs;
   var listProducts = <ProductModel>[].obs;
 
   var isLoadingDiscounted = true.obs;
   var isLoadingNew = true.obs;
+  var isLoadingMostSold = true.obs;
   var isLoadingList = true.obs;
 
   var hasErrorDiscounted = false.obs;
   var hasErrorNew = false.obs;
+  var hasErrorMostSold = false.obs;
   var hasErrorList = false.obs;
 
   var searchQuery = ''.obs;
@@ -26,6 +29,7 @@ class ProductController extends GetxController {
     super.onInit();
     fetchDiscountedProducts();
     fetchNewProducts();
+    fetchMostSoldProducts();
   }
 
   Future<void> fetchDiscountedProducts() async {
@@ -51,6 +55,19 @@ class ProductController extends GetxController {
       hasErrorNew.value = true;
     } finally {
       isLoadingNew.value = false;
+    }
+  }
+
+  Future<void> fetchMostSoldProducts() async {
+    isLoadingMostSold.value = true;
+    hasErrorMostSold.value = false;
+    try {
+      final results = await _api.getMostSoldProducts(limit: 10);
+      mostSoldProducts.value = results;
+    } catch (_) {
+      hasErrorMostSold.value = true;
+    } finally {
+      isLoadingMostSold.value = false;
     }
   }
 

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:atlas/utils/nav.dart';
@@ -7,6 +8,7 @@ import 'package:atlas/modules/product_detail/bindings/product_detail_binding.dar
 import 'package:atlas/modules/product_detail/views/product_detail_screen.dart';
 import 'package:atlas/models/product_model.dart';
 import 'package:atlas/themes/colors.dart';
+import 'package:atlas/utils/price_format.dart';
 import 'package:iconly/iconly.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -396,20 +398,17 @@ class _SearchResultCard extends StatelessWidget {
                             product.image!,
                             fit: BoxFit.contain,
                           )
-                        : Image.network(
-                            product.image!,
+                        : CachedNetworkImage(
+                            imageUrl: product.image!,
                             fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Center(
-                                child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null,
-                                  color: AppColors.primary,
-                                  strokeWidth: 2,
-                                ),
-                              );
-                            },
+                            errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
+                            progressIndicatorBuilder: (_, __, progress) => Center(
+                              child: CircularProgressIndicator(
+                                value: progress.progress,
+                                color: AppColors.primary,
+                                strokeWidth: 2,
+                              ),
+                            ),
                           ))
                     : const Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
               ),
@@ -453,7 +452,7 @@ class _SearchResultCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          '${product.price.toStringAsFixed(0)} TMT',
+                          '${fmtPrice(product.price)} TMT',
                           style: const TextStyle(
                             color: AppColors.primary,
                             fontSize: 15,
@@ -464,7 +463,7 @@ class _SearchResultCard extends StatelessWidget {
                         if (product.oldPrice != null) ...[
                           const SizedBox(width: 6),
                           Text(
-                            '${product.oldPrice!.toStringAsFixed(0)} TMT',
+                            '${fmtPrice(product.oldPrice!)} TMT',
                             style: const TextStyle(
                               color: Colors.grey,
                               fontSize: 11,

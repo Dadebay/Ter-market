@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:atlas/modules/home/views/banner_detail_screen.dart';
+import 'package:atlas/modules/category/views/category_detail_screen.dart';
 import 'package:atlas/themes/colors.dart';
 import 'package:atlas/utils/nav.dart';
 import 'package:flutter/material.dart';
@@ -55,7 +56,19 @@ class _BannerCarouselState extends State<BannerCarousel> {
   }
 
   void _handleBannerTap(BannerModel banner) {
-    // Eğer banner'da products varsa, hepsini sepete ekle
+    // 1. Eğer banner'da brendId varsa, o brende ait ürünleri göster
+    if (banner.brendId != null) {
+      Nav.push(
+        context,
+        () => CategoryDetailScreen(
+          brandId: banner.brendId,
+          categoryName: banner.title ?? 'Harytlar',
+        ),
+      );
+      return;
+    }
+
+    // 2. Eğer banner'da products varsa, hepsini sepete ekle
     if (banner.products != null && banner.products!.isNotEmpty) {
       final cartController = Get.find<CartController>();
       // Ürünleri sessizce ekle (her biri için snackbar gösterme)
@@ -77,7 +90,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
       return;
     }
 
-    // Normal banner davranışı
+    // 3. Normal banner davranışı
     final body = banner.body ?? '';
     final isUrl = body.startsWith('http://') || body.startsWith('https://');
     if (isUrl) {

@@ -1,3 +1,19 @@
+class BankOption {
+  final int id;
+  final String nameKey;
+  final String name;
+  final String? imagePath;
+
+  const BankOption({required this.id, required this.nameKey, required this.name, this.imagePath});
+
+  static List<BankOption> get all => [
+        const BankOption(id: 1, nameKey: 'bank_halkbank', name: 'Halkbank', imagePath: 'assets/images/halk.webp'),
+        const BankOption(id: 2, nameKey: 'bank_rysgalbank', name: 'Rysgalbank', imagePath: 'assets/images/rysgal.webp'),
+        const BankOption(id: 3, nameKey: 'bank_senagatbank', name: 'Senagatbank', imagePath: 'assets/images/senagat.webp'),
+        const BankOption(id: 4, nameKey: 'bank_wneskbank', name: 'Wneskbank'),
+      ];
+}
+
 class RegionModel {
   final int id;
   final String name;
@@ -131,6 +147,8 @@ class CreateOrderRequest {
   final int? deliveryTypeId;
   final int? deliveryTimeId;
   final int? regionId;
+  final bool isExpress;
+  final String? deliveryDate;
   final List<OrderItemRequest> items;
 
   const CreateOrderRequest({
@@ -141,6 +159,8 @@ class CreateOrderRequest {
     this.deliveryTypeId,
     this.deliveryTimeId,
     this.regionId,
+    this.isExpress = false,
+    this.deliveryDate,
     required this.items,
   });
 
@@ -152,6 +172,8 @@ class CreateOrderRequest {
         if (deliveryTypeId != null) 'delivery_type': deliveryTypeId,
         if (deliveryTimeId != null) 'delivery_time': deliveryTimeId,
         if (regionId != null) 'region': regionId,
+        'is_express': isExpress,
+        if (deliveryDate != null) 'created_at': deliveryDate,
         'items': items.map((e) => e.toJson()).toList(),
       };
 }
@@ -216,6 +238,22 @@ class OrderModel {
   final DeliveryTime? deliveryTimeDetail;
   final RegionModel? regionDetail;
   final String? orderStatus;
+  final bool isExpress;
+
+  /// True when this order is an express delivery.
+  /// The backend may omit `is_express` from its response, so we also
+  /// infer express when a delivery type exists but no time slot was chosen.
+  bool get isExpressDelivery => isExpress || (deliveryTimeDetail == null && deliveryTypeDetail != null);
+
+  /// Correctly-calculated total: items cost + delivery fee based on express flag.
+  /// Backend's `total_price` always uses the regular delivery price even for
+  /// express orders, so we recalculate locally when region data is available.
+  double get displayTotal {
+    if (regionDetail == null) return totalPrice;
+    final itemsTotal = items.fold(0.0, (sum, item) => sum + item.cost);
+    final deliveryFee = isExpressDelivery ? regionDetail!.exPrice : regionDetail!.price;
+    return itemsTotal + deliveryFee;
+  }
 
   const OrderModel({
     required this.id,
@@ -235,6 +273,7 @@ class OrderModel {
     this.deliveryTimeDetail,
     this.regionDetail,
     this.orderStatus,
+    this.isExpress = false,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
@@ -264,6 +303,7 @@ class OrderModel {
       deliveryTimeDetail: json['delivery_time_detail'] != null ? DeliveryTime.fromJson(json['delivery_time_detail'] as Map<String, dynamic>) : null,
       regionDetail: json['region_detail'] != null ? RegionModel.fromJson(json['region_detail'] as Map<String, dynamic>) : null,
       orderStatus: json['order_status'] as String?,
+      isExpress: json['is_express'] as bool? ?? false,
     );
   }
 }

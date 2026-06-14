@@ -30,10 +30,14 @@ class CategoryController extends GetxController {
         _api.getCategories(),
         _api.getSubCategories(),
       ]);
-      categories.value = results[0] as List<CategoryModel>;
+      final cats = results[0] as List<CategoryModel>;
+      cats.sort((a, b) => a.order != b.order ? a.order.compareTo(b.order) : a.id.compareTo(b.id));
+      categories.value = cats;
+
       final subs = results[1] as List<SubCategoryModel>;
+      subs.sort((a, b) => a.order != b.order ? a.order.compareTo(b.order) : a.id.compareTo(b.id));
       allSubCategories.value = subs;
-      // Pre-build subCategoriesMap from cache
+      // Pre-build subCategoriesMap from cache (already sorted)
       final map = <int, List<SubCategoryModel>>{};
       for (final sub in subs) {
         (map[sub.categoryId] ??= []).add(sub);

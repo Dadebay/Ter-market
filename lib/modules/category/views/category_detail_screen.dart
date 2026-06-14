@@ -5,7 +5,6 @@ import 'package:get/get.dart';
 import 'package:atlas/utils/nav.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/core/api/api_service.dart';
-import 'package:atlas/models/brand_model.dart';
 import 'package:atlas/models/category_model.dart';
 import 'package:atlas/models/product_model.dart';
 import 'package:atlas/themes/colors.dart';
@@ -14,6 +13,8 @@ import 'package:atlas/widgets/app_loading_state.dart';
 import 'package:atlas/widgets/app_empty_state.dart';
 import 'package:atlas/modules/product_detail/views/product_detail_screen.dart';
 import 'package:atlas/modules/product_detail/bindings/product_detail_binding.dart';
+import 'package:atlas/models/brand_model.dart';
+import 'package:atlas/modules/category/views/brand_select_screen.dart';
 import 'package:iconly/iconly.dart';
 
 enum _SortOption { none, newest, priceLow, priceHigh, discount }
@@ -25,8 +26,10 @@ class CategoryDetailScreen extends StatefulWidget {
   final int? initialSubCategoryId;
   final String? initialSubCategoryName;
 
-  /// 'discount' | 'newest' | 'price_low' | 'price_high'
+  /// 'discount' | 'newest' | 'price_low' | 'price_high' | 'most_sold'
   final String? initialFilter;
+
+  final bool mostSoldMode;
 
   const CategoryDetailScreen({
     super.key,
@@ -36,6 +39,7 @@ class CategoryDetailScreen extends StatefulWidget {
     this.initialSubCategoryId,
     this.initialSubCategoryName,
     this.initialFilter,
+    this.mostSoldMode = false,
   });
 
   @override
@@ -66,10 +70,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   late ScrollController _scrollCtrl;
 
   // Brand filter
-  List<BrandModel> _brands = [];
   int? _selectedBrandId;
   String? _selectedBrandName;
-  bool _isBrandsLoading = false;
+  List<BrandModel> _availableBrands = [];
 
   @override
   void initState() {
@@ -93,6 +96,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   }
 
   Future<void> _loadInitialData() async {
+    if (widget.mostSoldMode) {
+      _isSubLoading.value = false;
+      await _fetchMostSold();
+      return;
+    }
+
     // Map initialFilter to sort option
     if (widget.initialFilter != null) {
       switch (widget.initialFilter) {
@@ -124,6 +133,21 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     }
   }
 
+  Future<void> _fetchMostSold() async {
+    _isProductLoading.value = true;
+    _hasError.value = false;
+    try {
+      final results = await _api.getMostSoldProducts();
+      _products.value = results;
+      _totalProductCount.value = results.length;
+      _hasMore.value = false;
+    } catch (_) {
+      _hasError.value = true;
+    } finally {
+      _isProductLoading.value = false;
+    }
+  }
+
   Future<void> _fetchCategoryById() async {
     if (widget.categoryId == null) return;
     try {
@@ -136,7 +160,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     if (widget.categoryId == null) return;
     _isSubLoading.value = true;
     try {
-      _subCategories.value = await _api.getSubCategories(categoryId: widget.categoryId!);
+      final subs = await _api.getSubCategories(categoryId: widget.categoryId!);
+      subs.sort((a, b) => a.order != b.order ? a.order.compareTo(b.order) : a.id.compareTo(b.id));
+      _subCategories.value = subs;
     } catch (_) {
     } finally {
       _isSubLoading.value = false;
@@ -184,6 +210,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       _products.value = result.results;
       _totalProductCount.value = result.count;
       _hasMore.value = result.count > result.results.length;
+      if (result.availableBrands.isNotEmpty) {
+        _availableBrands = result.availableBrands.map((e) => BrandModel.fromJson(e)).toList();
+      }
     } catch (_) {
       _hasError.value = true;
     } finally {
@@ -232,177 +261,27 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     _fetchProducts(categoryId: widget.categoryId, subCategoryId: id);
   }
 
-  Future<void> _fetchBrands() async {
-    if (_brands.isNotEmpty || _isBrandsLoading) return;
-    setState(() => _isBrandsLoading = true);
-    try {
-      final result = await _api.getBrands();
-      setState(() => _brands = result);
-    } catch (_) {
-    } finally {
-      setState(() => _isBrandsLoading = false);
-    }
-  }
-
   void _showBrandSheet() async {
-    await _fetchBrands();
-    if (!mounted) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setSheetState) {
-          return Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.65,
-            ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDDE2DF),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'brands'.tr,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'Gilroy',
-                      ),
-                    ),
-                    if (_selectedBrandId != null)
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedBrandId = null;
-                            _selectedBrandName = null;
-                          });
-                          Navigator.of(ctx).pop();
-                          _fetchProducts(
-                            categoryId: widget.categoryId,
-                            subCategoryId: _selectedSubCatId,
-                          );
-                        },
-                        child: Text(
-                          'reset'.tr,
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontFamily: 'Gilroy',
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (_isBrandsLoading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
-                      child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
-                    ),
-                  )
-                else if (_brands.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 32),
-                    child: Center(
-                      child: Text(
-                        'Brend tapylmady',
-                        style: TextStyle(color: Colors.grey, fontFamily: 'Gilroy'),
-                      ),
-                    ),
-                  )
-                else
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: _brands.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (ctx, i) {
-                        final brand = _brands[i];
-                        final isSelected = _selectedBrandId == brand.id;
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              _selectedBrandId = brand.id;
-                              _selectedBrandName = brand.localizedName;
-                            });
-                            Navigator.of(ctx).pop();
-                            _fetchProducts(
-                              categoryId: widget.categoryId,
-                              subCategoryId: _selectedSubCatId,
-                              brandId: brand.id,
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-                            child: Row(
-                              children: [
-                                if (brand.icon != null && brand.icon!.isNotEmpty)
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      brand.icon!,
-                                      width: 36,
-                                      height: 36,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (_, __, ___) => const SizedBox(width: 36, height: 36),
-                                    ),
-                                  )
-                                else
-                                  Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF5F5F5),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(Icons.storefront_outlined, color: Colors.grey, size: 18),
-                                  ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    brand.localizedName,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                      fontFamily: 'Gilroy',
-                                      color: isSelected ? AppColors.primary : const Color(0xFF1D1B20),
-                                    ),
-                                  ),
-                                ),
-                                if (isSelected) const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => BrandSelectScreen(
+          selectedBrandId: _selectedBrandId,
+          categoryId: widget.categoryId,
+          preloadedBrands: _availableBrands.isNotEmpty ? _availableBrands : null,
+        ),
       ),
+    );
+    if (result == null || !mounted) return;
+    final newId = result['id'] as int?;
+    final newName = result['name'] as String?;
+    setState(() {
+      _selectedBrandId = newId;
+      _selectedBrandName = newName;
+    });
+    _fetchProducts(
+      categoryId: widget.categoryId,
+      subCategoryId: _selectedSubCatId,
+      brandId: newId,
     );
   }
 
@@ -671,10 +550,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                             description: product.localizedDescription,
                             price: product.price,
                             oldPrice: product.oldPrice,
+                            discount: (product.discount != null && product.discount! > 0) ? product.discount!.toStringAsFixed(0) : null,
                             imageUrl: product.image ?? '',
                             storeName: product.storeName ?? 'Ter Market',
                             location: product.location ?? 'Aşgabat',
                             rating: product.rating,
+                            brandIcon: product.brandIcon,
                             onTap: () => Nav.push(
                               context,
                               () => ProductDetailScreen(
@@ -694,7 +575,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                       ),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: MediaQuery.of(context).size.width >= 600 ? 4 : 2,
-                        childAspectRatio: MediaQuery.of(context).size.width >= 600 ? 0.72 : 0.66,
+                        childAspectRatio: MediaQuery.of(context).size.width >= 600 ? 0.72 : 0.70,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
                       ),

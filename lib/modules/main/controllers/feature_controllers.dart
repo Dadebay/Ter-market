@@ -152,7 +152,6 @@ class FavoritesController extends GetxController {
   bool isFavorited(dynamic id, dynamic title) {
     final parsed = _toIntId(id);
     final result = parsed != null ? favoriteItems.any((item) => _toIntId(item['id']) == parsed) : favoriteItems.any((item) => item['title'] == title);
-    print('[Favourites] isFavorited(id: $id, title: $title) => $result (parsed: $parsed, items: ${favoriteItems.length})');
     return result;
   }
 
@@ -214,15 +213,17 @@ class FavoritesController extends GetxController {
     return null;
   }
 
-  Map<String, dynamic> _toMap(ProductModel p) => {
-        'id': p.id,
-        'title': p.name,
-        'name_tk': p.nameTk,
-        'name_ru': p.nameRu,
-        'imageUrl': p.image ?? '',
-        'price': p.price,
-        'rating': p.rating,
-      };
+  Map<String, dynamic> _toMap(ProductModel p) {
+    return {
+      'id': p.id,
+      'title': p.name,
+      'name_tk': p.nameTk,
+      'name_ru': p.nameRu,
+      'imageUrl': p.image ?? '',
+      'price': p.price,
+      'rating': p.rating,
+    };
+  }
 }
 
 class ProfileController extends GetxController {

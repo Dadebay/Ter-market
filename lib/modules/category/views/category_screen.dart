@@ -1,3 +1,4 @@
+import 'package:atlas/core/api/api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:atlas/core/api/api_service.dart';
@@ -277,79 +278,127 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
       );
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
-      itemCount: _brands.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 0.88,
-      ),
-      itemBuilder: (context, index) {
-        final brand = _brands[index];
-        return GestureDetector(
-          onTap: () => Nav.push(
-            context,
-            () => CategoryDetailScreen(
-              categoryName: brand.localizedName,
-              brandId: brand.id,
+    // Group brands by category — null category goes to a separate "other" bucket
+    final grouped = <String, List<BrandModel>>{};
+    for (final brand in _brands) {
+      final key = brand.localizedCategory ?? '';
+      (grouped[key] ??= []).add(brand);
+    }
+
+    // Debug: print grouping
+    print('[Brands] Total brands: ${_brands.length}');
+    for (final entry in grouped.entries) {
+      print('[Brands] Category "${entry.key}": ${entry.value.map((b) => b.localizedName).toList()}');
+    }
+
+    // Build ordered list: named categories first (alphabetically), then uncategorised
+    final namedKeys = grouped.keys.where((k) => k.isNotEmpty).toList()..sort();
+    final orderedKeys = [...namedKeys, if (grouped.containsKey('')) ''];
+
+    return CustomScrollView(
+      slivers: [
+        for (int s = 0; s < orderedKeys.length; s++) ...[
+          // Section header
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14, s == 0 ? 14 : 24, 14, 12),
+              child: Text(
+                orderedKeys[s].isNotEmpty ? orderedKeys[s] : 'other_brands'.tr,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Gilroy',
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
             ),
           ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFEDEDED)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                    child: Container(
-                      color: const Color(0xFFFAFAFA),
-                      padding: const EdgeInsets.all(10),
-                      child: AppNetworkImage(
-                        url: brand.icon,
-                        fit: BoxFit.contain,
-                        backgroundColor: const Color(0xFFFAFAFA),
+          // Brand grid for this section
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.78,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final brand = grouped[orderedKeys[s]]![index];
+                  return GestureDetector(
+                    onTap: () => Nav.push(
+                      context,
+                      () => CategoryDetailScreen(
+                        categoryName: brand.localizedName,
+                        brandId: brand.id,
                       ),
                     ),
-                  ),
-                ),
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF7F7F7),
-                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(14)),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                  child: Text(
-                    brand.localizedName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'Gilroy',
-                      color: Colors.black87,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFEDEDED)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                              child: Container(
+                                color: const Color(0xFFFAFAFA),
+                                padding: const EdgeInsets.all(8),
+                                child: brand.icon != null
+                                    ? AppNetworkImage(
+                                        url: ApiClient.imgUrl + brand.icon!,
+                                        fit: BoxFit.contain,
+                                        backgroundColor: const Color(0xFFFAFAFA),
+                                      )
+                                    : const Icon(Icons.storefront_outlined, color: Colors.grey),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF7F7F7),
+                              borderRadius: BorderRadius.vertical(bottom: Radius.circular(13)),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                            child: Text(
+                              brand.localizedName,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Gilroy',
+                                color: Colors.black87,
+                                height: 1.2,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                  );
+                },
+                childCount: grouped[orderedKeys[s]]!.length,
+              ),
             ),
           ),
-        );
-      },
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      ],
     );
   }
 

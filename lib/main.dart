@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:atlas/core/lang/app_translations.dart';
 import 'package:atlas/core/api/api_service.dart';
 import 'package:atlas/firebase_options.dart';

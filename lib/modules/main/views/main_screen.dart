@@ -49,6 +49,19 @@ class _MainScreenState extends State<MainScreen> {
 
   void _onTabSelected(int index) {
     if (_tabController.index == index) return;
+    if (index == 2) {
+      final cart = Get.find<CartController>();
+      final items = cart.cartItems;
+      print('┌─── CART SCREEN OPENED ────────────────────────');
+      print('│ item count  : ${items.length}');
+      for (final item in items) {
+        final price = (item['price'] is int) ? (item['price'] as int).toDouble() : (item['price'] as double? ?? 0.0);
+        final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+        print('│   ${item['title']} | price=${price.toStringAsFixed(0)} qty=$qty total=${(price * qty).toStringAsFixed(0)} TMT');
+      }
+      print('│ totalPrice  : ${cart.totalPrice.toStringAsFixed(0)} TMT');
+      print('└────────────────────────────────────────────────');
+    }
     setState(() {
       _tabController.jumpToTab(index);
       _mainCtrl.currentIndex.value = index;

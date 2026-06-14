@@ -7,6 +7,7 @@ class BannerModel {
   final String? body;
   final String? link;
   final List<ProductModel>? products;
+  final int? brendId;
 
   const BannerModel({
     this.id,
@@ -15,6 +16,7 @@ class BannerModel {
     this.body,
     this.link,
     this.products,
+    this.brendId,
   });
 
   factory BannerModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,15 @@ class BannerModel {
       }
     }
 
+    // "brend" field can be int, or null
+    int? brendId;
+    final brendRaw = json['brend'];
+    if (brendRaw is int) {
+      brendId = brendRaw;
+    } else if (brendRaw is String) {
+      brendId = int.tryParse(brendRaw);
+    }
+
     return BannerModel(
       id: json['id'] as int?,
       image: img,
@@ -36,6 +47,7 @@ class BannerModel {
       body: json['body'] as String?,
       link: json['link'] as String?,
       products: productsList,
+      brendId: brendId,
     );
   }
 }

@@ -1,7 +1,10 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:atlas/themes/colors.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:share_plus/share_plus.dart';
@@ -9,6 +12,7 @@ import 'package:atlas/modules/product_detail/controllers/product_detail_controll
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/modules/profile/controllers/language_controller.dart';
 import 'package:atlas/widgets/app_dialogs.dart';
+import 'package:atlas/utils/price_format.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final int productId;
@@ -109,22 +113,38 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     if (imgs.isNotEmpty) ...[
                       SizedBox(
                         height: 300,
-                        child: PageView.builder(
-                          controller: _pageCtrl,
-                          itemCount: imgs.length,
-                          onPageChanged: _ctrl.changeImage,
-                          itemBuilder: (context, index) {
-                            return GestureDetector(
-                              onTap: () => _openFullscreen(imgs, index),
-                              child: Hero(
-                                tag: 'product_${widget.productId}_$index',
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                  child: _buildImage(imgs[index]),
+                        child: Stack(
+                          children: [
+                            PageView.builder(
+                              controller: _pageCtrl,
+                              itemCount: imgs.length,
+                              onPageChanged: _ctrl.changeImage,
+                              itemBuilder: (context, index) {
+                                return GestureDetector(
+                                  onTap: () => _openFullscreen(imgs, index),
+                                  child: Hero(
+                                    tag: 'product_${widget.productId}_$index',
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                      child: _buildImage(imgs[index]),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            Positioned(
+                              right: 20,
+                              bottom: 16,
+                              child: Opacity(
+                                opacity: 0.55,
+                                child: Image.asset(
+                                  'assets/images/logo_width.png',
+                                  width: 80,
+                                  fit: BoxFit.contain,
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                          ],
                         ),
                       ),
                       if (imgs.length > 1)
@@ -209,19 +229,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 ),
                               ),
                               if (displayOldPrice != null && displayOldPrice > displayPrice) ...[
-                                const SizedBox(width: 10),
-                                Text(
-                                  '${_fmt(displayOldPrice)} TMT',
-                                  style: const TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 15,
-                                    decoration: TextDecoration.lineThrough,
+                                // const SizedBox(width: 10),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8, bottom: 4),
+                                  child: Text(
+                                    '${_fmt(displayOldPrice)} TMT',
+                                    style: const TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 15,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
                                   ),
                                 ),
                               ],
                               if (discountPct != null && discountPct > 0) ...[
-                                const SizedBox(width: 8),
                                 Container(
+                                  margin: const EdgeInsets.only(left: 8, bottom: 4),
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: Colors.red.shade50,
@@ -276,7 +299,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  String _fmt(double v) => v == v.truncateToDouble() ? v.toInt().toString() : v.toString();
+  String _fmt(double v) => fmtPrice(v);
 
   AppBar _buildAppBar() {
     return AppBar(
@@ -326,28 +349,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (url.startsWith('assets')) {
       return Image.asset(url, fit: BoxFit.contain);
     }
-    return Image.network(
-      url,
+    return CachedNetworkImage(
+      imageUrl: url,
       fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+      errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 50, color: Colors.grey),
     );
   }
 
   void _openFullscreen(List<String> imgs, int initialIndex) {
-    final fsCtrl = PageController(initialPage: initialIndex);
     final currentIdx = initialIndex.obs;
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
         transitionDuration: const Duration(milliseconds: 200),
         pageBuilder: (_, __, ___) => Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: Colors.white,
           appBar: AppBar(
-            backgroundColor: Colors.black,
+            backgroundColor: Colors.white,
             elevation: 0,
             leading: IconButton(
               onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close, color: Colors.white, size: 28),
+              icon: const Icon(Icons.close, color: Colors.black, size: 28),
             ),
             actions: [
               Obx(() => Padding(
@@ -355,21 +377,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: Center(
                       child: Text(
                         '${currentIdx.value + 1} / ${imgs.length}',
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        style: const TextStyle(color: Colors.black, fontSize: 14),
                       ),
                     ),
                   )),
             ],
           ),
-          body: PageView.builder(
-            controller: fsCtrl,
-            itemCount: imgs.length,
-            onPageChanged: (i) => currentIdx.value = i,
-            itemBuilder: (_, index) => InteractiveViewer(
-              minScale: 0.8,
-              maxScale: 5.0,
-              child: Center(child: _buildImage(imgs[index])),
-            ),
+          body: Stack(
+            children: [
+              PhotoViewGallery.builder(
+                itemCount: imgs.length,
+                pageController: PageController(initialPage: initialIndex),
+                onPageChanged: (i) => currentIdx.value = i,
+                builder: (context, index) {
+                  final url = imgs[index];
+                  return PhotoViewGalleryPageOptions(
+                    imageProvider: url.startsWith('assets') ? AssetImage(url) as ImageProvider : NetworkImage(url),
+                    minScale: PhotoViewComputedScale.contained,
+                    maxScale: PhotoViewComputedScale.covered * 4,
+                    heroAttributes: PhotoViewHeroAttributes(
+                      tag: 'product_${widget.productId}_$index',
+                    ),
+                  );
+                },
+                backgroundDecoration: const BoxDecoration(color: Colors.white),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: _WatermarkPattern(),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -508,6 +546,61 @@ class _CartCounter extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _WatermarkPattern extends StatelessWidget {
+  const _WatermarkPattern();
+
+  @override
+  Widget build(BuildContext context) {
+    const logoW = 90.0;
+    const logoH = 28.0;
+    const colGap = 150.0;
+    const rowGap = 100.0;
+    const cols = 5;
+    const rows = 12;
+
+    final logo = Opacity(
+      opacity: 0.18,
+      child: Image.asset(
+        'assets/images/logo_width.png',
+        width: logoW,
+        height: logoH,
+        fit: BoxFit.contain,
+      ),
+    );
+
+    return OverflowBox(
+      maxWidth: double.infinity,
+      maxHeight: double.infinity,
+      alignment: Alignment.center,
+      child: Transform.rotate(
+        angle: -0.52,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(rows, (row) {
+            final stagger = (row % 2 == 0) ? 0.0 : colGap / 2;
+            return Padding(
+              padding: EdgeInsets.only(bottom: rowGap - logoH),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(width: stagger),
+                  ...List.generate(
+                    cols,
+                    (col) => Padding(
+                      padding: EdgeInsets.only(right: col < cols - 1 ? colGap - logoW : 0),
+                      child: logo,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ),
       ),
     );
   }

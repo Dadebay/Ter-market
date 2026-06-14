@@ -15,7 +15,7 @@ dependencies:
   #==================== FIREBASE ====================#
   firebase_core: ^4.1.1
   firebase_messaging: ^16.0.2
-  firebase_analytics: ^12.0.2
+  # firebase_analytics: ^12.0.2
   flutter_local_notifications: ^19.0.0
 
   #==================== STATE MANAGEMENT ====================#
@@ -34,24 +34,24 @@ dependencies:
   #==================== LOCAL STORAGE ====================#
   get_storage: ^2.1.1
 
-  #==================== UTILITIES ====================#
+  #==================== UTILITIES =xR===================#
   timezone: ^0.10.1
-  kartal: ^3.5.0
+  kartal: ^4.1.0
   intl: ^0.20.2
-  device_info_plus: ^9.1.2
+  # device_info_plus: ^10.0.0
   url_launcher: ^6.2.1
 
   #==================== MEDIA ====================#
   image_picker: ^1.1.2
   cached_network_image: ^3.3.1
   flutter_svg: ^2.0.10+1
+  photo_view: ^0.15.0
 
   #==================== DOWNLOAD ====================#
   dio: ^5.4.0
-  path: ^1.9.0
   feather_icons: ^1.2.0
   iconly: ^1.0.1
-  share_plus: ^7.2.2
+  share_plus: ^10.0.0
 
 dev_dependencies:
   flutter_test:

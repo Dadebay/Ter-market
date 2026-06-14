@@ -24,91 +24,48 @@ class HomeScreen extends GetView<HomeController> {
   HomeScreen({super.key});
   final HomeController controller = Get.put<HomeController>(HomeController());
 
+  void _onCartPressed(ProductModel product) {
+    AppDialogs.showQuickOrderDialog({
+      'id': product.id,
+      'title': product.localizedName,
+      'imageUrl': product.image ?? '',
+      'price': product.price,
+    });
+  }
+
+  void _onProductTap(BuildContext context, ProductModel product) {
+    Nav.push(
+      context,
+      () => ProductDetailScreen(
+        productId: product.id,
+        title: product.localizedName,
+        imageUrl: product.image ?? '',
+        price: product.price,
+        oldPrice: product.oldPrice,
+        images: product.allImages,
+      ),
+      binding: ProductDetailBinding(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Get.find<CartController>();
     Get.find<MainController>();
     final productController = Get.find<ProductController>();
     final categoryController = Get.find<CategoryController>();
-    final searchController = TextEditingController();
-
-    void onCartPressed(ProductModel product) {
-      AppDialogs.showQuickOrderDialog({
-        'id': product.id,
-        'title': product.localizedName,
-        'imageUrl': product.image ?? '',
-        'price': product.price,
-      });
-    }
-
-    void onProductTap(ProductModel product) {
-      Nav.push(
-        context,
-        () => ProductDetailScreen(
-          productId: product.id,
-          title: product.localizedName,
-          imageUrl: product.image ?? '',
-          price: product.price,
-          oldPrice: product.oldPrice,
-          images: product.allImages,
-        ),
-        binding: ProductDetailBinding(),
-      );
-    }
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        toolbarHeight: 60,
-        titleSpacing: 12,
-        title: Row(
-          children: [
-            Expanded(
-              child: RichText(
-                textAlign: TextAlign.left,
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Ter ',
-                      style: TextStyle(
-                        color: Color(0xFF4B2AA4),
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'Gilroy',
-                      ),
-                    ),
-                    TextSpan(
-                      text: 'Market',
-                      style: TextStyle(
-                        color: Color(0xFFF5A623),
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'Gilroy',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // ── Sağ: sadece arama ikonu ──
-            GestureDetector(
-              onTap: () => Nav.push(context, () => ContactPage()),
-              child: Icon(FeatherIcons.phoneCall, color: Colors.black87, size: 20),
-            ),
-            const SizedBox(width: 4),
-          ],
-        ),
-      ),
+      appBar: _buildAppBar(context),
       body: RefreshIndicator(
         color: const Color(0xff22B241),
         onRefresh: () async {
           await Future.wait([
             productController.fetchDiscountedProducts(),
             productController.fetchNewProducts(),
+            productController.fetchMostSoldProducts(),
+            categoryController.fetchCategories(),
           ]);
         },
         child: SingleChildScrollView(
@@ -116,172 +73,82 @@ class HomeScreen extends GetView<HomeController> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5F5F5),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFFE0E0E0),
-                            width: 1,
-                          ),
-                        ),
-                        child: TextField(
-                          controller: searchController,
-                          decoration: InputDecoration(
-                            hintText: 'search_hint'.tr,
-                            hintStyle: TextStyle(
-                              color: Colors.grey.shade400,
-                              fontSize: 15,
-                              fontFamily: 'Gilroy',
-                              fontWeight: FontWeight.w500,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                          ),
-                          onSubmitted: (value) {
-                            if (value.isNotEmpty) {
-                              Nav.push(context, () => SearchScreen(initialQuery: value));
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    GestureDetector(
-                      onTap: () {
-                        final query = searchController.text.trim();
-                        if (query.isNotEmpty) {
-                          Nav.push(context, () => SearchScreen(initialQuery: query));
-                        } else {
-                          Nav.push(context, () => const SearchScreen());
-                        }
-                      },
-                      child: Container(
-                        height: 50,
-                        width: 50,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF4B2AA4),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          IconlyLight.search,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _HomeSearchBar(context: context),
               const BannerCarousel(),
               _buildCategorySection(context, categoryController),
               _buildSectionHeader(
                 'discounts'.tr,
-                () {
-                  Nav.push(
-                      context,
-                      () => CategoryDetailScreen(
-                            categoryName: 'discounts'.tr,
-                            initialFilter: 'price_high',
-                          ));
-                },
+                () => Nav.push(context, () => CategoryDetailScreen(categoryName: 'discounts'.tr, initialFilter: 'price_high')),
               ),
-              Obx(() {
-                if (productController.isLoadingDiscounted.value) {
-                  return const SizedBox(height: 350, child: AppLoadingState());
-                }
-                if (productController.discountedProducts.isEmpty) {
-                  return const SizedBox(height: 100);
-                }
-                return SizedBox(
-                  height: 260,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.only(left: 16, right: 8),
-                    itemCount: productController.discountedProducts.length,
-                    itemBuilder: (context, index) {
-                      final product = productController.discountedProducts[index];
-                      return Padding(
-                        padding: EdgeInsets.only(right: index == productController.discountedProducts.length - 1 ? 0 : 8),
-                        child: ProductCard(
-                          id: product.id.toString(),
-                          imageUrl: product.image ?? '',
-                          title: product.localizedName,
-                          description: product.localizedDescription,
-                          price: product.price,
-                          oldPrice: product.oldPrice,
-                          rating: product.rating,
-                          storeName: product.storeName ?? 'Atlas',
-                          location: product.location ?? 'Aşgabat',
-                          onTap: () => onProductTap(product),
-                          onCartPressed: () => onCartPressed(product),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              }),
-              const SizedBox(height: 40),
+              Obx(() => _HorizontalProductList(
+                    isLoading: productController.isLoadingDiscounted.value,
+                    products: productController.discountedProducts,
+                    onTap: (p) => _onProductTap(context, p),
+                    onCart: _onCartPressed,
+                  )),
+              const SizedBox(height: 30),
               _buildSectionHeader(
                 'new_products'.tr,
-                () {
-                  Nav.push(
-                      context,
-                      () => CategoryDetailScreen(
-                            categoryName: 'new_products'.tr,
-                            initialFilter: 'newest',
-                          ));
-                },
+                () => Nav.push(context, () => CategoryDetailScreen(categoryName: 'new_products'.tr, initialFilter: 'newest')),
               ),
-              Obx(() {
-                if (productController.isLoadingNew.value) {
-                  return const SizedBox(height: 350, child: AppLoadingState());
-                }
-                if (productController.newProducts.isEmpty) {
-                  return const SizedBox(height: 100);
-                }
-                return SizedBox(
-                  height: 260,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.only(left: 16, right: 8),
-                    itemCount: productController.newProducts.length,
-                    itemBuilder: (context, index) {
-                      final product = productController.newProducts[index];
-                      return Padding(
-                        padding: EdgeInsets.only(right: index == productController.newProducts.length - 1 ? 0 : 8),
-                        child: ProductCard(
-                          id: product.id.toString(),
-                          imageUrl: product.image ?? '',
-                          title: product.localizedName,
-                          description: product.localizedDescription,
-                          price: product.price,
-                          oldPrice: product.oldPrice,
-                          rating: product.rating,
-                          storeName: product.storeName ?? 'Atlas',
-                          location: product.location ?? 'Aşgabat',
-                          showNewTag: true,
-                          onTap: () => onProductTap(product),
-                          onCartPressed: () => onCartPressed(product),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              }),
+              Obx(() => _HorizontalProductList(
+                    isLoading: productController.isLoadingNew.value,
+                    products: productController.newProducts,
+                    showNewTag: true,
+                    onTap: (p) => _onProductTap(context, p),
+                    onCart: _onCartPressed,
+                  )),
+              const SizedBox(height: 30),
+              _buildSectionHeader(
+                'most_sold'.tr,
+                () => Nav.push(context, () => CategoryDetailScreen(categoryName: 'most_sold'.tr, mostSoldMode: true)),
+              ),
+              Obx(() => _HorizontalProductList(
+                    isLoading: productController.isLoadingMostSold.value,
+                    products: productController.mostSoldProducts,
+                    onTap: (p) => _onProductTap(context, p),
+                    onCart: _onCartPressed,
+                  )),
               const SizedBox(height: 40),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  AppBar _buildAppBar(BuildContext context) {
+    return AppBar(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      toolbarHeight: 60,
+      titleSpacing: 12,
+      title: Row(
+        children: [
+          Expanded(
+            child: RichText(
+              text: const TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Ter ',
+                    style: TextStyle(color: Color(0xFF4B2AA4), fontSize: 24, fontWeight: FontWeight.w900, fontFamily: 'Gilroy'),
+                  ),
+                  TextSpan(
+                    text: 'Market',
+                    style: TextStyle(color: Color(0xFFF5A623), fontSize: 24, fontWeight: FontWeight.w900, fontFamily: 'Gilroy'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => Nav.push(context, () => ContactPage()),
+            child: const Icon(FeatherIcons.phoneCall, color: Colors.black87, size: 20),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
     );
   }
@@ -445,6 +312,128 @@ class HomeScreen extends GetView<HomeController> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Search Bar ──────────────────────────────────────────────────────────────
+
+class _HomeSearchBar extends StatefulWidget {
+  final BuildContext context;
+  const _HomeSearchBar({required this.context});
+
+  @override
+  State<_HomeSearchBar> createState() => _HomeSearchBarState();
+}
+
+class _HomeSearchBarState extends State<_HomeSearchBar> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _navigate() {
+    final q = _ctrl.text.trim();
+    Nav.push(widget.context, () => q.isNotEmpty ? SearchScreen(initialQuery: q) : const SearchScreen());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 50,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE0E0E0)),
+              ),
+              child: TextField(
+                controller: _ctrl,
+                decoration: InputDecoration(
+                  hintText: 'search_hint'.tr,
+                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15, fontFamily: 'Gilroy', fontWeight: FontWeight.w500),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                onSubmitted: (v) {
+                  if (v.isNotEmpty) Nav.push(widget.context, () => SearchScreen(initialQuery: v));
+                },
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: _navigate,
+            child: Container(
+              height: 50,
+              width: 50,
+              decoration: BoxDecoration(color: const Color(0xFF4B2AA4), borderRadius: BorderRadius.circular(12)),
+              child: const Icon(IconlyLight.search, color: Colors.white, size: 24),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Horizontal Product List ─────────────────────────────────────────────────
+
+class _HorizontalProductList extends StatelessWidget {
+  final bool isLoading;
+  final List<ProductModel> products;
+  final bool showNewTag;
+  final void Function(ProductModel) onTap;
+  final void Function(ProductModel) onCart;
+
+  const _HorizontalProductList({
+    required this.isLoading,
+    required this.products,
+    required this.onTap,
+    required this.onCart,
+    this.showNewTag = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) return const SizedBox(height: 350, child: AppLoadingState());
+    if (products.isEmpty) return const SizedBox(height: 100);
+    return SizedBox(
+      height: 240,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(left: 16, right: 8),
+        itemCount: products.length,
+        itemBuilder: (_, i) {
+          final p = products[i];
+          return Padding(
+            padding: EdgeInsets.only(right: i == products.length - 1 ? 0 : 8),
+            child: ProductCard(
+              id: p.id.toString(),
+              imageUrl: p.image ?? '',
+              title: p.localizedName,
+              description: p.localizedDescription,
+              price: p.price,
+              oldPrice: p.oldPrice,
+              discount: (p.discount != null && p.discount! > 0) ? p.discount!.toStringAsFixed(0) : null,
+              rating: p.rating,
+              storeName: p.storeName ?? 'Atlas',
+              location: p.location ?? 'Aşgabat',
+              showNewTag: showNewTag,
+              brandIcon: p.brandIcon,
+              onTap: () => onTap(p),
+              onCartPressed: () => onCart(p),
+            ),
+          );
+        },
       ),
     );
   }

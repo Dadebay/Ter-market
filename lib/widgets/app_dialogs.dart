@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -209,7 +210,7 @@ class AppDialogs {
                       width: 80,
                       height: 80,
                       color: const Color(0xFFF9F9F9),
-                      child: item['imageUrl'].toString().startsWith('assets') ? Image.asset(item['imageUrl'], fit: BoxFit.contain) : Image.network(item['imageUrl'], fit: BoxFit.contain),
+                      child: item['imageUrl'].toString().startsWith('assets') ? Image.asset(item['imageUrl'], fit: BoxFit.contain) : CachedNetworkImage(imageUrl: item['imageUrl'], fit: BoxFit.contain, errorWidget: (_, __, ___) => const Icon(Icons.image, color: Colors.grey)),
                     ),
                   ),
                   const SizedBox(width: 15),

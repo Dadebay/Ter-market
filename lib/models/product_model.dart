@@ -23,6 +23,7 @@ class ProductModel {
   final String? descriptionRu;
   final String? categoryName;
   final String? subCategoryName;
+  final String? brandIcon;
 
   String get localizedName {
     try {
@@ -63,6 +64,7 @@ class ProductModel {
     this.descriptionRu,
     this.categoryName,
     this.subCategoryName,
+    this.brandIcon,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -96,17 +98,42 @@ class ProductModel {
       storeName: json['store_name'] as String?,
       location: json['location'] as String?,
       isNew: (json['is_new'] as bool?) ?? false,
+      brandIcon: _parseBrandIcon(json),
     );
+  }
+
+  static String? _parseBrandIcon(Map<String, dynamic> json) {
+    final brend = json['brend'];
+    if (brend is Map) {
+      final icon = brend['icon'] as String?;
+      if (icon != null && icon.isNotEmpty) return _toAbsoluteUrl(icon);
+    }
+    return null;
+  }
+
+  static const String _mediaBase = 'https://termarket.com.tm';
+  static const String _legacyBase = 'http://216.250.11.77:7000';
+
+  static String _toAbsoluteUrl(String url) {
+    if (url.startsWith(_legacyBase)) {
+      return url.replaceFirst(_legacyBase, _mediaBase);
+    }
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/')) return '$_mediaBase$url';
+    return url;
   }
 
   static String? _parseFirstImage(Map<String, dynamic> json) {
     final images = json['images'];
     if (images is List && images.isNotEmpty) {
       final first = images.first;
-      if (first is String) return first;
-      if (first is Map) return (first['img'] ?? first['image']) as String?;
+      String? raw;
+      if (first is String) raw = first;
+      if (first is Map) raw = (first['img'] ?? first['image']) as String?;
+      return raw != null ? _toAbsoluteUrl(raw) : null;
     }
-    return json['image'] as String?;
+    final raw = json['image'] as String?;
+    return raw != null ? _toAbsoluteUrl(raw) : null;
   }
 
   static List<String> _parseAllImages(Map<String, dynamic> json) {
@@ -114,15 +141,16 @@ class ProductModel {
     if (images is List) {
       return images
           .map<String>((e) {
-            if (e is String) return e;
-            if (e is Map) return (e['img'] ?? e['image'] ?? '') as String;
-            return '';
+            String raw = '';
+            if (e is String) raw = e;
+            if (e is Map) raw = (e['img'] ?? e['image'] ?? '') as String;
+            return raw.isNotEmpty ? _toAbsoluteUrl(raw) : '';
           })
           .where((s) => s.isNotEmpty)
           .toList();
     }
     final single = json['image'] as String?;
-    return single != null ? [single] : [];
+    return single != null ? [_toAbsoluteUrl(single)] : [];
   }
 }
 
@@ -131,21 +159,25 @@ class PaginatedProducts {
   final String? next;
   final String? previous;
   final List<ProductModel> results;
+  final List<Map<String, dynamic>> availableBrands;
 
   const PaginatedProducts({
     required this.count,
     this.next,
     this.previous,
     required this.results,
+    this.availableBrands = const [],
   });
 
   factory PaginatedProducts.fromJson(Map<String, dynamic> json) {
     final rawResults = json['results'] as List<dynamic>? ?? [];
+    final rawBrands = json['available_brands'] as List<dynamic>? ?? [];
     return PaginatedProducts(
       count: json['count'] as int? ?? 0,
       next: json['next'] as String?,
       previous: json['previous'] as String?,
       results: rawResults.map((e) => ProductModel.fromJson(e as Map<String, dynamic>)).toList(),
+      availableBrands: rawBrands.map((e) => e as Map<String, dynamic>).toList(),
     );
   }
 }

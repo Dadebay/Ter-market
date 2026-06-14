@@ -1,10 +1,12 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:atlas/themes/colors.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
+import 'package:atlas/utils/price_format.dart';
 import 'package:atlas/widgets/app_dialogs.dart';
 import 'package:iconly/iconly.dart';
 
@@ -20,6 +22,7 @@ class ProductCard extends StatefulWidget {
   final bool showNewTag;
   final dynamic id;
   final String? description;
+  final String? brandIcon;
   final VoidCallback onTap;
   final VoidCallback? onCartPressed;
 
@@ -36,6 +39,7 @@ class ProductCard extends StatefulWidget {
     this.showNewTag = true,
     this.id,
     this.description,
+    this.brandIcon,
     required this.onTap,
     this.onCartPressed,
   });
@@ -56,7 +60,17 @@ class _ProductCardState extends State<ProductCard> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: widget.onTap,
+      onTap: () {
+        print('┌─── ProductCard tapped ────────────────────────');
+        print('│ id:       ${widget.id}');
+        print('│ title:    ${widget.title}');
+        print('│ price:    ${widget.price}');
+        print('│ oldPrice: ${widget.oldPrice}');
+        print('│ discount: ${widget.discount}');
+        print('│ imageUrl: ${widget.imageUrl}');
+        print('└───────────────────────────────────────────────');
+        widget.onTap();
+      },
       child: Container(
         width: 170,
         decoration: BoxDecoration(
@@ -69,21 +83,64 @@ class _ProductCardState extends State<ProductCard> {
           children: [
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Container(
-                height: 155,
-                width: double.infinity,
-                color: const Color(0xFFF9F9F9),
-                child: widget.imageUrl.startsWith('assets')
-                    ? Image.asset(widget.imageUrl, fit: BoxFit.cover)
-                    : Image.network(
-                        widget.imageUrl,
+              child: Stack(
+                children: [
+                  Container(
+                    height: 140,
+                    width: double.infinity,
+                    color: const Color(0xFFF9F9F9),
+                    child: widget.imageUrl.startsWith('assets')
+                        ? Image.asset(widget.imageUrl, fit: BoxFit.contain)
+                        : CachedNetworkImage(
+                            imageUrl: widget.imageUrl,
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) => const Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => const Icon(Icons.image, size: 40, color: Colors.grey),
+                          ),
+                  ),
+                  Positioned(
+                    right: 6,
+                    bottom: 6,
+                    child: Opacity(
+                      opacity: 0.55,
+                      child: Image.asset(
+                        'assets/images/logo_width.png',
+                        width: 56,
                         fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.image, size: 40, color: Colors.grey),
                       ),
+                    ),
+                  ),
+                  if (widget.discount != null && widget.discount!.isNotEmpty && widget.discount != '0')
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '-${widget.discount}%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 6),
+              padding: const EdgeInsets.only(left: 8, right: 8, top: 6, bottom: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -98,29 +155,69 @@ class _ProductCardState extends State<ProductCard> {
                       height: 1.2,
                     ),
                   ),
-                  if (widget.description != null && widget.description!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        widget.description!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade500,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
                   Padding(
-                    padding: const EdgeInsets.only(top: 4, bottom: 6),
-                    child: Text(
-                      '${widget.price.toStringAsFixed(0)} TMT',
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    padding: const EdgeInsets.only(top: 3, bottom: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: fmtPrice(widget.price),
+                                style: TextStyle(
+                                  color: widget.oldPrice != null && widget.oldPrice! > widget.price ? Colors.red : Colors.black,
+                                  fontSize: 17,
+                                  fontFamily: 'Gilroy',
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              TextSpan(
+                                text: ' TMT',
+                                style: TextStyle(
+                                  color: widget.oldPrice != null && widget.oldPrice! > widget.price ? Colors.red : Colors.black,
+                                  fontSize: 12,
+                                  fontFamily: 'Gilroy',
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (widget.oldPrice != null && widget.oldPrice! > widget.price) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: fmtPrice(widget.oldPrice!),
+                                    style: const TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w400,
+                                      fontFamily: 'Gilroy',
+                                      decoration: TextDecoration.lineThrough,
+                                      decorationColor: Colors.grey,
+                                    ),
+                                  ),
+                                  const TextSpan(
+                                    text: ' TMT',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 11,
+                                      fontFamily: 'Gilroy',
+                                      fontWeight: FontWeight.w400,
+                                      decoration: TextDecoration.lineThrough,
+                                      decorationColor: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   Obx(() {
@@ -142,7 +239,6 @@ class _ProductCardState extends State<ProductCard> {
                           final isFav = favCtrl.isFavorited(widget.id, widget.title);
                           return GestureDetector(
                             onTap: () {
-                              print('[ProductCard] Favorite button tapped - id: ${widget.id}, title: ${widget.title}, currently favorited: $isFav');
                               favCtrl.toggleFavorite({
                                 'id': widget.id,
                                 'title': widget.title,

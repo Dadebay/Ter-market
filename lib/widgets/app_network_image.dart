@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:atlas/core/api/api_client.dart';
 
 class AppNetworkImage extends StatelessWidget {
   final String? url;
@@ -31,7 +32,10 @@ class AppNetworkImage extends StatelessWidget {
   }
 
   Widget _buildImage() {
-    final resolvedUrl = url;
+    String? resolvedUrl = url;
+    if (resolvedUrl != null && resolvedUrl.isNotEmpty && resolvedUrl.startsWith('/')) {
+      resolvedUrl = '${ApiClient.imgUrl}$resolvedUrl';
+    }
 
     if (resolvedUrl == null || resolvedUrl.isEmpty) {
       return _placeholder();
@@ -55,40 +59,59 @@ class AppNetworkImage extends StatelessWidget {
       placeholder: (_, __) => _placeholder(),
       errorWidget: (_, __, ___) => errorWidget ?? _errorPlaceholder(),
       imageBuilder: backgroundColor != null
-          ? (_, imageProvider) => Container(
-                width: width,
-                height: height,
-                color: backgroundColor,
-                padding: const EdgeInsets.all(8),
-                child: Image(image: imageProvider, fit: fit),
+          ? (_, imageProvider) => ColoredBox(
+                color: backgroundColor!,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Image(image: imageProvider, fit: fit),
+                ),
               )
           : null,
     );
   }
 
   Widget _placeholder() {
-    return Container(
-      width: width,
-      height: height,
-      color: backgroundColor ?? const Color(0xFFF0F0F0),
+    final color = backgroundColor ?? const Color(0xFFF0F0F0);
+    if (width != null || height != null) {
+      return Container(
+        width: width,
+        height: height,
+        color: color,
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xff22B241)),
+          ),
+        ),
+      );
+    }
+    return ColoredBox(
+      color: color,
       child: const Center(
         child: SizedBox(
           width: 24,
           height: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Color(0xff22B241),
-          ),
+          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xff22B241)),
         ),
       ),
     );
   }
 
   Widget _errorPlaceholder() {
-    return Container(
-      width: width,
-      height: height,
-      color: backgroundColor ?? const Color(0xFFF0F0F0),
+    final color = backgroundColor ?? const Color(0xFFF0F0F0);
+    if (width != null || height != null) {
+      return Container(
+        width: width,
+        height: height,
+        color: color,
+        child: const Center(
+          child: Icon(Icons.image_not_supported_outlined, color: Colors.grey, size: 32),
+        ),
+      );
+    }
+    return ColoredBox(
+      color: color,
       child: const Center(
         child: Icon(Icons.image_not_supported_outlined, color: Colors.grey, size: 32),
       ),

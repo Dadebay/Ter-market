@@ -1,10 +1,12 @@
 import 'package:atlas/themes/colors.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:atlas/utils/nav.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/modules/orders/views/order_screen.dart';
+import 'package:atlas/utils/price_format.dart';
 
 class CartScreen extends GetView<CartController> {
   const CartScreen({super.key});
@@ -124,7 +126,7 @@ class CartScreen extends GetView<CartController> {
                 borderRadius: BorderRadius.circular(14),
                 child: image.startsWith('assets')
                     ? Image.asset(image, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.image, color: Colors.grey))
-                    : Image.network(image, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.image, color: Colors.grey)),
+                    : CachedNetworkImage(imageUrl: image, fit: BoxFit.contain, errorWidget: (_, __, ___) => const Icon(Icons.image, color: Colors.grey)),
               ),
             ),
             const SizedBox(width: 14),
@@ -176,15 +178,31 @@ class CartScreen extends GetView<CartController> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Unit price and total
+                      // Unit price (grey) + item total (bold)
                       Expanded(
-                        child: Text(
-                          '${price.toStringAsFixed(0)} TMT',
-                          style: const TextStyle(
-                            color: Color(0xFF8E8E93),
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${fmtPrice(price)} TMT × $quantity',
+                              style: const TextStyle(
+                                color: Color(0xFF8E8E93),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                fontFamily: 'Gilroy',
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${fmtPrice(price * quantity)} TMT',
+                              style: const TextStyle(
+                                color: Color(0xFF1A1A1A),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Gilroy',
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       // Qty counter pill
@@ -294,12 +312,12 @@ class CartScreen extends GetView<CartController> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
+                        Get.back();
                         if (isClearAll) {
                           controller.clearCart();
                         } else {
                           controller.removeItem(index);
                         }
-                        Navigator.of(context).pop();
                       },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -319,9 +337,7 @@ class CartScreen extends GetView<CartController> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
+                      onPressed: Get.back,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         elevation: 0,
@@ -363,10 +379,24 @@ class CartScreen extends GetView<CartController> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('total'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.grey, fontFamily: 'Gilroy')),
-                Obx(() => Text('${controller.totalPrice.toStringAsFixed(0)} TMT', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.primary))),
+                Text('total'.tr, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey, fontFamily: 'Gilroy')),
+                Obx(() => Text(
+                      '${fmtPrice(controller.totalPrice)} TMT',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.primary, fontFamily: 'Gilroy'),
+                    )),
               ],
             ),
+            const SizedBox(height: 4),
+            Obx(() {
+              final totalQty = controller.cartItems.fold(0, (sum, item) => sum + ((item['quantity'] as num?)?.toInt() ?? 1));
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '$totalQty haryt',
+                  style: const TextStyle(fontSize: 13, color: Colors.grey, fontFamily: 'Gilroy', fontWeight: FontWeight.w500),
+                ),
+              );
+            }),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {

@@ -1,4 +1,5 @@
 import 'package:atlas/themes/colors.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -6,6 +7,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/core/api/api_service.dart';
 import 'package:atlas/models/order_model.dart';
 import 'package:atlas/modules/profile/controllers/language_controller.dart';
+import 'package:atlas/utils/price_format.dart';
 import 'package:iconly/iconly.dart';
 
 class MyOrdersScreen extends StatefulWidget {
@@ -15,16 +17,28 @@ class MyOrdersScreen extends StatefulWidget {
   State<MyOrdersScreen> createState() => _MyOrdersScreenState();
 }
 
-class _MyOrdersScreenState extends State<MyOrdersScreen> {
+class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProviderStateMixin {
   final _api = ApiService();
   final _orders = <OrderModel>[].obs;
   final _isLoading = true.obs;
   final _hasError = false.obs;
 
+  late final TabController _tabController;
+
+  static const _waitingStatuses = {'pending', '0'};
+  static const _acceptedStatuses = {'accepted', '1', 'processing', 'on_way', 'delivered'};
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _fetchOrders();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchOrders() async {
@@ -34,7 +48,6 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       final storage = Get.find<GetStorage>();
       final deviceId = storage.read<String>('device_id') ?? '';
       final result = await _api.getMyOrders(deviceId);
-      // Sort newest first
       result.sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
       _orders.value = result;
     } catch (_) {
@@ -54,6 +67,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     }
   }
 
+  List<OrderModel> get _waitingOrders => _orders.where((o) => _waitingStatuses.contains(o.status)).toList();
+  List<OrderModel> get _acceptedOrders => _orders.where((o) => _acceptedStatuses.contains(o.status)).toList();
+
   @override
   Widget build(BuildContext context) {
     final lang = Get.find<LanguageController>().selectedLanguage.value;
@@ -65,7 +81,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(
+          icon: const Icon(
             IconlyLight.arrow_left_circle,
             color: Colors.black87,
             size: 22,
@@ -80,6 +96,27 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             fontSize: 20,
             fontFamily: 'Gilroy',
           ),
+        ),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: Colors.black45,
+          indicatorColor: AppColors.primary,
+          indicatorWeight: 2.5,
+          labelStyle: const TextStyle(
+            fontFamily: 'Gilroy',
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontFamily: 'Gilroy',
+            fontWeight: FontWeight.w500,
+            fontSize: 14,
+          ),
+          tabs: [
+            Tab(text: 'tab_waiting'.tr),
+            Tab(text: 'tab_accepted'.tr),
+          ],
         ),
       ),
       body: Obx(() {
@@ -138,65 +175,108 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             ),
           );
         }
-        if (_orders.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(28),
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.08),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const HugeIcon(
-                    icon: HugeIcons.strokeRoundedShoppingCart01,
-                    color: AppColors.accent,
-                    size: 52,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'no_orders'.tr,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'Gilroy',
-                    color: Color(0xFF1D1B20),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'no_orders_desc'.tr,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    fontFamily: 'Gilroy',
-                    color: Colors.black45,
+
+        return TabBarView(
+          controller: _tabController,
+          children: [
+            _OrderList(
+              orders: _waitingOrders,
+              lang: lang,
+              formatDate: _formatDate,
+              onRefresh: _fetchOrders,
+            ),
+            _OrderList(
+              orders: _acceptedOrders,
+              lang: lang,
+              formatDate: _formatDate,
+              onRefresh: _fetchOrders,
+            ),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+class _OrderList extends StatelessWidget {
+  final List<OrderModel> orders;
+  final String lang;
+  final String Function(String?) formatDate;
+  final Future<void> Function() onRefresh;
+
+  const _OrderList({
+    required this.orders,
+    required this.lang,
+    required this.formatDate,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      color: AppColors.accent,
+      onRefresh: onRefresh,
+      child: orders.isEmpty
+          ? CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(28),
+                          decoration: BoxDecoration(
+                            color: AppColors.accent.withValues(alpha: 0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const HugeIcon(
+                            icon: HugeIcons.strokeRoundedShoppingCart01,
+                            color: AppColors.accent,
+                            size: 52,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'no_orders'.tr,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'Gilroy',
+                            color: Color(0xFF1D1B20),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'no_orders_desc'.tr,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            fontFamily: 'Gilroy',
+                            color: Colors.black45,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
+            )
+          : ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              itemCount: orders.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                return _OrderCard(
+                  order: orders[index],
+                  lang: lang,
+                  formatDate: formatDate,
+                );
+              },
             ),
-          );
-        }
-        return RefreshIndicator(
-          color: AppColors.accent,
-          onRefresh: _fetchOrders,
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: _orders.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              return _OrderCard(
-                order: _orders[index],
-                lang: lang,
-                formatDate: _formatDate,
-              );
-            },
-          ),
-        );
-      }),
     );
   }
 }
@@ -234,8 +314,8 @@ class _OrderCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
@@ -247,7 +327,9 @@ class _OrderCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '${order.orderNumber ?? '#${order.id}'}',
+                    order.orderNumber ?? order.id.toString(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
@@ -296,7 +378,7 @@ class _OrderCard extends StatelessWidget {
                 if (order.orderStatus != null)
                   Row(
                     children: [
-                      HugeIcon(
+                      const HugeIcon(
                         icon: HugeIcons.strokeRoundedInformationCircle,
                         color: Colors.black45,
                         size: 14,
@@ -319,32 +401,35 @@ class _OrderCard extends StatelessWidget {
                   _InfoRow(
                     icon: HugeIcons.strokeRoundedLocationAdd01,
                     label: 'region'.tr,
-                    value: '${order.regionDetail!.name} (+${order.regionDetail!.price.toStringAsFixed(0)} TMT)',
+                    value: '${order.regionDetail!.name} (+${fmtPrice(order.isExpressDelivery ? order.regionDetail!.exPrice : order.regionDetail!.price)} TMT)',
                   ),
                 ],
               ],
             ),
           ),
 
-          // const Padding(
-          //   padding: EdgeInsets.symmetric(horizontal: 16),
-          //   child: Divider(height: 1, thickness: 0.8),
-          // ),
-
-          // ── Details Section (Always visible) ────────────
+          // ── Details Section ────────────
           Container(
             padding: const EdgeInsets.all(16).copyWith(top: 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (order.deliveryTypeDetail != null)
+                if (order.createdAt != null && order.createdAt!.isNotEmpty)
+                  _InfoRow(
+                    icon: HugeIcons.strokeRoundedCalendar01,
+                    label: 'order_date'.tr,
+                    value: formatDate(order.createdAt),
+                  ),
+                if (order.deliveryTypeDetail != null) ...[
+                  if (order.createdAt != null) const SizedBox(height: 8),
                   _InfoRow(
                     icon: HugeIcons.strokeRoundedDeliveryBox01,
                     label: 'delivery_type'.tr,
-                    value: order.deliveryTypeDetail!.localizedName(lang),
+                    value: order.isExpressDelivery ? 'express_delivery'.tr : order.deliveryTypeDetail!.localizedName(lang),
                   ),
+                ],
                 if (order.deliveryTimeDetail != null) ...[
-                  if (order.deliveryTypeDetail != null) const SizedBox(height: 8),
+                  if (order.deliveryTypeDetail != null || order.createdAt != null) const SizedBox(height: 8),
                   _InfoRow(
                     icon: HugeIcons.strokeRoundedClock01,
                     label: 'delivery_time'.tr,
@@ -425,7 +510,7 @@ class _OrderCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${order.totalPrice.toStringAsFixed(0)} TMT',
+                  '${fmtPrice(order.displayTotal)} TMT',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -462,12 +547,12 @@ class _ItemRow extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: item.productImages.isNotEmpty
-                ? Image.network(
-                    item.productImages.first,
+                ? CachedNetworkImage(
+                    imageUrl: item.productImages.first,
                     width: 36,
                     height: 36,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Center(
+                    errorWidget: (_, __, ___) => const Center(
                       child: HugeIcon(
                         icon: HugeIcons.strokeRoundedPackageDelivered,
                         color: Colors.black45,
@@ -502,7 +587,7 @@ class _ItemRow extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '${item.price.toStringAsFixed(0)} TMT × ${item.quantity}',
+                '${fmtPrice(item.price)} TMT × ${item.quantity}',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
@@ -514,7 +599,7 @@ class _ItemRow extends StatelessWidget {
           ),
         ),
         Text(
-          '${item.cost.toStringAsFixed(0)} TMT',
+          '${fmtPrice(item.cost)} TMT',
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, fontFamily: 'Gilroy', color: AppColors.black),
         ),
       ],
@@ -568,6 +653,7 @@ class _StatusBadge extends StatelessWidget {
 
   static const _colors = <String, Color>{
     'pending': Color(0xFFF59E0B),
+    'accepted': Color(0xFF10B981),
     'processing': Color(0xFF3B82F6),
     'on_way': Color(0xFF8B5CF6),
     'delivered': Color(0xFF22C55E),
@@ -576,6 +662,7 @@ class _StatusBadge extends StatelessWidget {
 
   static const _labelKeys = <String, String>{
     'pending': 'status_pending',
+    'accepted': 'status_accepted',
     'processing': 'status_processing',
     'on_way': 'status_on_way',
     'delivered': 'status_delivered',

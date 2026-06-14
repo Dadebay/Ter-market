@@ -26,8 +26,8 @@ class GlobalSafeAreaWrapper extends StatelessWidget {
       value: _getSystemUiOverlayStyle(context),
       child: SafeArea(
         top: top,
-        bottom: Platform.isAndroid ? true : false,
-        // bottom: true,
+        // bottom: Platform.isAndroid ? true : false,
+        bottom: true,
         left: left,
         right: right,
         child: child,

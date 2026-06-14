@@ -91,7 +91,7 @@ class _LoggedInBody extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _buildMenuItem(
-            HugeIcons.strokeRoundedDelete02,
+            HugeIcons.strokeRoundedCleaningBucket,
             'delete_account'.tr,
             () => _showDeleteAccountDialog(context),
             isDestructive: true,
@@ -166,7 +166,7 @@ Widget _buildMenuItem(
 void _showDeleteAccountDialog(BuildContext context) {
   showDialog(
     context: context,
-    builder: (_) => Dialog(
+    builder: (dialogContext) => Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       backgroundColor: Colors.white,
       child: Padding(
@@ -181,7 +181,7 @@ void _showDeleteAccountDialog(BuildContext context) {
                 shape: BoxShape.circle,
               ),
               child: const HugeIcon(
-                icon: HugeIcons.strokeRoundedDelete02,
+                icon: HugeIcons.strokeRoundedCleaningBucket,
                 color: Colors.red,
                 size: 32,
               ),
@@ -189,8 +189,9 @@ void _showDeleteAccountDialog(BuildContext context) {
             const SizedBox(height: 20),
             Text(
               'delete_account'.tr,
+              textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
                 fontFamily: 'Gilroy',
                 color: Color(0xFF1D1B20),
@@ -213,9 +214,7 @@ void _showDeleteAccountDialog(BuildContext context) {
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
+                    onPressed: () => Navigator.of(dialogContext).pop(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
@@ -237,15 +236,11 @@ void _showDeleteAccountDialog(BuildContext context) {
                 Expanded(
                   child: TextButton(
                     onPressed: () async {
-                      Navigator.of(context).pop();
+                      Navigator.of(dialogContext).pop();
                       try {
                         await FirebaseMessaging.instance.deleteToken();
                       } catch (_) {}
-                      final storage = Get.find<GetStorage>();
-                      storage.remove('fcm_token');
-                      storage.remove('device_id');
-                      storage.remove('device_registered');
-                      storage.remove('auth_token');
+                      await GetStorage().erase();
                       AppDialogs.showSnackbar(
                         message: 'account_deleted'.tr,
                         icon: Icons.check_circle_rounded,

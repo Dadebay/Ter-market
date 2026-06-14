@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -115,18 +116,16 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
                               imageUrl,
                               fit: BoxFit.contain,
                             )
-                          : Image.network(
-                              imageUrl,
+                          : CachedNetworkImage(
+                              imageUrl: imageUrl,
                               fit: BoxFit.contain,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null,
-                                    color: const Color(0xff22B241),
-                                  ),
-                                );
-                              },
+                              progressIndicatorBuilder: (_, __, progress) => Center(
+                                child: CircularProgressIndicator(
+                                  value: progress.progress,
+                                  color: const Color(0xff22B241),
+                                ),
+                              ),
+                              errorWidget: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey),
                             ),
                     ),
                   ),

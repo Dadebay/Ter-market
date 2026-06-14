@@ -7,6 +7,7 @@ class CategoryModel {
   final String titleTk;
   final String titleRu;
   final String? image;
+  final int order;
 
   const CategoryModel({
     required this.id,
@@ -14,6 +15,7 @@ class CategoryModel {
     required this.titleTk,
     required this.titleRu,
     this.image,
+    this.order = 0,
   });
 
   String get localizedName {
@@ -34,6 +36,7 @@ class CategoryModel {
       titleTk: titleTk,
       titleRu: titleRu,
       image: json['icon'] as String?,
+      order: (json['order'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -45,6 +48,7 @@ class SubCategoryModel {
   final String titleRu;
   final String? image;
   final int categoryId;
+  final int order;
 
   const SubCategoryModel({
     required this.id,
@@ -53,6 +57,7 @@ class SubCategoryModel {
     required this.titleRu,
     this.image,
     required this.categoryId,
+    this.order = 0,
   });
 
   String get localizedName {
@@ -74,6 +79,7 @@ class SubCategoryModel {
       titleRu: titleRu,
       image: json['icon'] as String?,
       categoryId: json['category'] is int ? json['category'] as int : (json['category']?['id'] as int? ?? 0),
+      order: (json['order'] as num?)?.toInt() ?? 0,
     );
   }
 }

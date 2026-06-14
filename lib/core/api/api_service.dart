@@ -22,7 +22,7 @@ class ApiService {
   Future<List<CategoryModel>> getCategories() async {
     final response = await _dio.get('categories/');
     final list = _extractList(response.data);
-    return list.map((e) => CategoryModel.fromJson(e as Map<String, dynamic>)).toList().reversed.toList();
+    return list.map((e) => CategoryModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<List<BrandModel>> getBrands() async {
@@ -79,6 +79,14 @@ class ApiService {
   Future<ProductModel> getProductById(int id) async {
     final response = await _dio.get('products/$id/');
     return ProductModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<List<ProductModel>> getMostSoldProducts({int? limit}) async {
+    final Map<String, dynamic> params = {};
+    if (limit != null) params['limit'] = limit;
+    final response = await _dio.get('products/most-sold/', queryParameters: params);
+    final list = _extractList(response.data);
+    return list.map((e) => ProductModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   // ─── About ──────────────────────────────────────────────────────────────────
@@ -237,12 +245,45 @@ class ApiService {
   }
 
   Future<List<OrderModel>> getMyOrders(String deviceId) async {
-    final response = await _dio.get(
-      'orders/',
-      queryParameters: {'device_id': deviceId},
+    print('┌─── GET MY ORDERS ─────────────────────────────');
+    print('│ device_id: "$deviceId"');
+    try {
+      final response = await _dio.get(
+        'orders/',
+        queryParameters: {'device_id': deviceId},
+      );
+      print('│ status: ${response.statusCode}');
+      print('│ raw response: ${response.data}');
+      final list = _extractList(response.data);
+      print('│ extracted list length: ${list.length}');
+      if (list.isNotEmpty) {
+        print('│ first item: ${list.first}');
+      }
+      final orders = list.map((e) => OrderModel.fromJson(e as Map<String, dynamic>)).toList();
+      print('│ parsed orders: ${orders.length}');
+      for (final o in orders) {
+        print('│   → id:${o.id} status:"${o.status}" orderStatus:"${o.orderStatus}" deviceId:"${o.deviceId}"');
+      }
+      print('└───────────────────────────────────────────────');
+      return orders;
+    } catch (e, st) {
+      print('│ ERROR: $e');
+      print('│ STACK: $st');
+      print('└───────────────────────────────────────────────');
+      rethrow;
+    }
+  }
+
+  Future<String?> initiateOnlinePayment({required int orderId, required int bankId}) async {
+    final response = await _dio.post(
+      'initiate/',
+      data: {'order_id': orderId, 'bank_id': bankId},
     );
-    final list = _extractList(response.data);
-    return list.map((e) => OrderModel.fromJson(e as Map<String, dynamic>)).toList();
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return data['invoiceUrl'] as String?;
+    }
+    return null;
   }
 
   Future<OrderModel> createOrder(CreateOrderRequest request) async {

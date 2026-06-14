@@ -1,4 +1,4 @@
-package com.gurbanov.termarket
+package com.gurbanov.termarketadmin
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -2,7 +2,6 @@ import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/themes/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/modules/main/controllers/main_controller.dart';
 import 'package:atlas/modules/home/views/home_screen.dart';
 import 'package:atlas/modules/category/views/category_screen.dart';
@@ -24,18 +23,21 @@ class _MainScreenState extends State<MainScreen> {
   late final MainController _mainCtrl;
   Worker? _indexWorker;
 
+  // One GlobalKey per tab — used to pop screens back to root
+  final List<GlobalKey<NavigatorState>> _navKeys = List.generate(
+    5,
+    (_) => GlobalKey<NavigatorState>(),
+  );
+
   @override
   void initState() {
     super.initState();
     _mainCtrl = Get.find<MainController>();
     _tabController = PersistentTabController(initialIndex: 0);
 
-    // Sync MainController.currentIndex → PersistentTabController
     _indexWorker = ever(_mainCtrl.currentIndex, (int idx) {
       if (mounted && _tabController.index != idx) {
-        setState(() {
-          _tabController.jumpToTab(idx);
-        });
+        setState(() => _tabController.jumpToTab(idx));
       }
     });
   }
@@ -48,7 +50,14 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onTabSelected(int index) {
-    if (_tabController.index == index) return;
+    if (_tabController.index == index) {
+      // Already on this tab — pop all pushed screens back to root
+      final navState = _navKeys[index].currentState;
+      if (navState != null && navState.canPop()) {
+        navState.popUntil((route) => route.isFirst);
+      }
+      return;
+    }
     if (index == 2) {
       final cart = Get.find<CartController>();
       final items = cart.cartItems;
@@ -76,11 +85,26 @@ class _MainScreenState extends State<MainScreen> {
       itemCount: 5,
       backgroundColor: Colors.white,
       screens: [
-        CustomNavBarScreen(screen: HomeScreen()),
-        CustomNavBarScreen(screen: CategoryScreen()),
-        CustomNavBarScreen(screen: CartScreen()),
-        CustomNavBarScreen(screen: FavoritesScreen(fromBottomNavBar: true)),
-        CustomNavBarScreen(screen: ProfileScreen()),
+        CustomNavBarScreen(
+          screen: HomeScreen(),
+          routeAndNavigatorSettings: RouteAndNavigatorSettings(navigatorKey: _navKeys[0]),
+        ),
+        CustomNavBarScreen(
+          screen: const CategoryScreen(),
+          routeAndNavigatorSettings: RouteAndNavigatorSettings(navigatorKey: _navKeys[1]),
+        ),
+        CustomNavBarScreen(
+          screen: const CartScreen(),
+          routeAndNavigatorSettings: RouteAndNavigatorSettings(navigatorKey: _navKeys[2]),
+        ),
+        CustomNavBarScreen(
+          screen: FavoritesScreen(fromBottomNavBar: true),
+          routeAndNavigatorSettings: RouteAndNavigatorSettings(navigatorKey: _navKeys[3]),
+        ),
+        CustomNavBarScreen(
+          screen: const ProfileScreen(),
+          routeAndNavigatorSettings: RouteAndNavigatorSettings(navigatorKey: _navKeys[4]),
+        ),
       ],
       customWidget: _MainNavBar(
         selectedIndex: _tabController.index,

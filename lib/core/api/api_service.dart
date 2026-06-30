@@ -28,6 +28,11 @@ class ApiService {
   Future<List<BrandModel>> getBrands() async {
     final response = await _dio.get('brends/');
     final list = _extractList(response.data);
+    print('[API] getBrands list length: ${list.length}');
+    for (int i = 0; i < list.length; i++) {
+      final item = list[i] as Map<String, dynamic>;
+      print('[API] Brand[$i] RAW JSON: $item');
+    }
     return list.map((e) => BrandModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -284,6 +289,34 @@ class ApiService {
       return data['invoiceUrl'] as String?;
     }
     return null;
+  }
+
+  Future<void> cancelOrder(int orderId, String deviceId) async {
+    const baseUrl = 'https://termarket.com.tm/api/';
+    final path = 'orders/$orderId/';
+    final body = {'order_status': 'cancelled'};
+    print('┌─── CANCEL ORDER REQUEST ───────────────────────');
+    print('│ URL    : $baseUrl$path');
+    print('│ METHOD : PATCH');
+    print('│ BODY   : $body');
+    print('└───────────────────────────────────────────────');
+    try {
+      final response = await _dio.patch(path, data: body);
+      print('┌─── CANCEL ORDER RESPONSE ──────────────────────');
+      print('│ status : ${response.statusCode}');
+      print('│ data   : ${response.data}');
+      print('└───────────────────────────────────────────────');
+    } on DioException catch (e) {
+      print('┌─── CANCEL ORDER ERROR ─────────────────────────');
+      print('│ type      : ${e.type}');
+      print('│ status    : ${e.response?.statusCode}');
+      print('│ response  : ${e.response?.data}');
+      print('│ message   : ${e.message}');
+      print('│ req path  : ${e.requestOptions.path}');
+      print('│ req body  : ${e.requestOptions.data}');
+      print('└───────────────────────────────────────────────');
+      rethrow;
+    }
   }
 
   Future<OrderModel> createOrder(CreateOrderRequest request) async {

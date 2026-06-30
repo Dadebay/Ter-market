@@ -43,8 +43,10 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
   late final CategoryController _ctrl;
   final _api = ApiService();
   final _searchCtrl = TextEditingController();
+  final _brandSearchCtrl = TextEditingController();
   late final TabController _tabController;
   bool _isSearching = false;
+  bool _isBrandSearching = false;
   List<_SearchHit> _hits = [];
   final _brands = <BrandModel>[];
   bool _isBrandsLoading = true;
@@ -57,12 +59,12 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
     _tabController = TabController(length: 2, vsync: this)
       ..addListener(() {
         if (_tabController.indexIsChanging) return;
-        if (_tabController.index != 0 && _isSearching) {
-          _stopSearch();
-        }
+        if (_tabController.index != 0 && _isSearching) _stopSearch();
+        if (_tabController.index != 1 && _isBrandSearching) _stopBrandSearch();
         setState(() {});
       });
     _searchCtrl.addListener(_onSearchChanged);
+    _brandSearchCtrl.addListener(() => setState(() {}));
     _fetchBrands();
   }
 
@@ -70,7 +72,15 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
   void dispose() {
     _tabController.dispose();
     _searchCtrl.dispose();
+    _brandSearchCtrl.dispose();
     super.dispose();
+  }
+
+  void _startBrandSearch() => setState(() => _isBrandSearching = true);
+
+  void _stopBrandSearch() {
+    _brandSearchCtrl.clear();
+    setState(() => _isBrandSearching = false);
   }
 
   Future<void> _fetchBrands() async {
@@ -129,6 +139,8 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     final isCategoryTab = _tabController.index == 0;
+    final isBrandsTab = _tabController.index == 1;
+    final isAnySearching = _isSearching || _isBrandSearching;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -137,43 +149,53 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.white,
-        titleSpacing: _isSearching ? 4 : 16,
-        leading: isCategoryTab && _isSearching
+        titleSpacing: isAnySearching ? 4 : 16,
+        leading: _isSearching
             ? IconButton(
-                icon: Icon(Icons.arrow_back, color: Colors.black),
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
                 onPressed: _stopSearch,
               )
-            : null,
-        title: isCategoryTab && _isSearching
+            : _isBrandSearching
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.black),
+                    onPressed: _stopBrandSearch,
+                  )
+                : null,
+        title: _isSearching
             ? TextField(
                 controller: _searchCtrl,
                 autofocus: true,
                 textInputAction: TextInputAction.search,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontFamily: 'Gilroy',
-                  color: Colors.black,
-                ),
+                style: const TextStyle(fontSize: 15, fontFamily: 'Gilroy', color: Colors.black),
                 decoration: InputDecoration(
                   hintText: 'search_category'.tr,
-                  hintStyle: TextStyle(
-                    color: Colors.grey.shade400,
-                    fontSize: 15,
-                    fontFamily: 'Gilroy',
-                  ),
+                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15, fontFamily: 'Gilroy'),
                   border: InputBorder.none,
                   isDense: true,
                 ),
               )
-            : Text(
-                'categories'.tr,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Gilroy',
-                ),
-              ),
+            : _isBrandSearching
+                ? TextField(
+                    controller: _brandSearchCtrl,
+                    autofocus: true,
+                    textInputAction: TextInputAction.search,
+                    style: const TextStyle(fontSize: 15, fontFamily: 'Gilroy', color: Colors.black),
+                    decoration: InputDecoration(
+                      hintText: 'search_brand'.tr,
+                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15, fontFamily: 'Gilroy'),
+                      border: InputBorder.none,
+                      isDense: true,
+                    ),
+                  )
+                : Text(
+                    'categories'.tr,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Gilroy',
+                    ),
+                  ),
         centerTitle: false,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(52),
@@ -201,7 +223,7 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
           ),
         ),
         actions: [
-          if (isCategoryTab && _isSearching && _searchCtrl.text.isNotEmpty)
+          if (_isSearching && _searchCtrl.text.isNotEmpty)
             IconButton(
               onPressed: () {
                 _searchCtrl.clear();
@@ -209,10 +231,23 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
               },
               icon: const Icon(Icons.close_rounded, color: Colors.black54, size: 22),
             )
+          else if (_isBrandSearching && _brandSearchCtrl.text.isNotEmpty)
+            IconButton(
+              onPressed: () {
+                _brandSearchCtrl.clear();
+                setState(() {});
+              },
+              icon: const Icon(Icons.close_rounded, color: Colors.black54, size: 22),
+            )
           else if (isCategoryTab && !_isSearching)
             IconButton(
               onPressed: _startSearch,
-              icon: Icon(IconlyLight.search, color: Colors.black87, size: 24),
+              icon: const Icon(IconlyLight.search, color: Colors.black87, size: 24),
+            )
+          else if (isBrandsTab && !_isBrandSearching)
+            IconButton(
+              onPressed: _startBrandSearch,
+              icon: const Icon(IconlyLight.search, color: Colors.black87, size: 24),
             ),
         ],
       ),
@@ -278,17 +313,21 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
       );
     }
 
-    // Group brands by category — null category goes to a separate "other" bucket
-    final grouped = <String, List<BrandModel>>{};
-    for (final brand in _brands) {
-      final key = brand.localizedCategory ?? '';
-      (grouped[key] ??= []).add(brand);
+    final q = _brandSearchCtrl.text.trim().toLowerCase();
+    final filteredBrands = q.isEmpty ? _brands : _brands.where((b) => b.localizedName.toLowerCase().contains(q)).toList();
+
+    if (q.isNotEmpty && filteredBrands.isEmpty) {
+      return AppEmptyState(
+        icon: Icons.search_off_rounded,
+        title: 'no_results'.tr,
+      );
     }
 
-    // Debug: print grouping
-    print('[Brands] Total brands: ${_brands.length}');
-    for (final entry in grouped.entries) {
-      print('[Brands] Category "${entry.key}": ${entry.value.map((b) => b.localizedName).toList()}');
+    // Group brands by category — null category goes to a separate "other" bucket
+    final grouped = <String, List<BrandModel>>{};
+    for (final brand in filteredBrands) {
+      final key = brand.localizedCategory ?? '';
+      (grouped[key] ??= []).add(brand);
     }
 
     // Build ordered list: named categories first (alphabetically), then uncategorised
@@ -298,7 +337,6 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
     return CustomScrollView(
       slivers: [
         for (int s = 0; s < orderedKeys.length; s++) ...[
-          // Section header
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(14, s == 0 ? 14 : 24, 14, 12),
@@ -314,7 +352,6 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
               ),
             ),
           ),
-          // Brand grid for this section
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
             sliver: SliverGrid(
@@ -327,70 +364,7 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final brand = grouped[orderedKeys[s]]![index];
-                  return GestureDetector(
-                    onTap: () => Nav.push(
-                      context,
-                      () => CategoryDetailScreen(
-                        categoryName: brand.localizedName,
-                        brandId: brand.id,
-                      ),
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFEDEDED)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
-                              child: Container(
-                                color: const Color(0xFFFAFAFA),
-                                padding: const EdgeInsets.all(8),
-                                child: brand.icon != null
-                                    ? AppNetworkImage(
-                                        url: ApiClient.imgUrl + brand.icon!,
-                                        fit: BoxFit.contain,
-                                        backgroundColor: const Color(0xFFFAFAFA),
-                                      )
-                                    : const Icon(Icons.storefront_outlined, color: Colors.grey),
-                              ),
-                            ),
-                          ),
-                          Container(
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFF7F7F7),
-                              borderRadius: BorderRadius.vertical(bottom: Radius.circular(13)),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                            child: Text(
-                              brand.localizedName,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                fontFamily: 'Gilroy',
-                                color: Colors.black87,
-                                height: 1.2,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+                  return _BrandCard(brand: brand);
                 },
                 childCount: grouped[orderedKeys[s]]!.length,
               ),
@@ -549,6 +523,79 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
           ),
         );
       },
+    );
+  }
+}
+
+class _BrandCard extends StatelessWidget {
+  final BrandModel brand;
+  const _BrandCard({required this.brand});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Nav.push(
+        context,
+        () => CategoryDetailScreen(
+          categoryName: brand.localizedName,
+          brandId: brand.id,
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFEDEDED)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                child: Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(8),
+                  child: brand.icon != null
+                      ? AppNetworkImage(
+                          url: '${ApiClient.imgUrl}/${brand.icon!}',
+                          fit: BoxFit.contain,
+                          backgroundColor: Colors.white,
+                        )
+                      : const Icon(Icons.storefront_outlined, color: Colors.grey),
+                ),
+              ),
+            ),
+            Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(13)),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: Text(
+                brand.localizedName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'Gilroy',
+                  color: Colors.black87,
+                  height: 1.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

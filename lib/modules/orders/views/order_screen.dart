@@ -7,7 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
+import 'package:atlas/modules/main/controllers/main_controller.dart';
 import 'package:atlas/modules/orders/controllers/order_controller.dart';
+import 'package:atlas/modules/orders/views/my_orders_screen.dart';
+import 'package:atlas/modules/orders/views/payment_webview_screen.dart';
 import 'package:atlas/modules/profile/controllers/language_controller.dart';
 import 'package:atlas/utils/price_format.dart';
 import 'package:atlas/models/order_model.dart';
@@ -40,6 +43,7 @@ class _OrderScreenState extends State<OrderScreen> {
   RegionModel? _selectedRegion;
   bool _isExpressDelivery = false;
   bool _isDeliveryTomorrow = false;
+  bool _bankExpanded = false;
 
   bool get _isOnlinePayment {
     final name = _selectedPayment?.nameTk.toLowerCase() ?? '';
@@ -185,27 +189,18 @@ class _OrderScreenState extends State<OrderScreen> {
       items: _orderCtrl.paymentMethods,
       selectedItem: _selectedPayment,
       onItemSelected: (item) {
-        setState(() => _selectedPayment = item);
-        _orderCtrl.selectedBank.value = null;
+        final name = item.nameTk.toLowerCase();
+        final isOnline = name.contains('online') || name.contains('onlaýn') || name.contains('onlayn');
+        setState(() {
+          _selectedPayment = item;
+          _bankExpanded = false;
+        });
+        _orderCtrl.selectedBank.value = isOnline ? BankOption.all.first : null;
       },
       itemBuilder: (item) => _PaymentTile(
         method: item,
         lang: _lang,
         isSelected: _selectedPayment?.id == item.id,
-      ),
-    );
-  }
-
-  void _showBankDialog() {
-    FocusScope.of(context).unfocus();
-    showDialog(
-      context: context,
-      builder: (ctx) => _BankSelectDialog(
-        banks: BankOption.all,
-        selectedBank: _orderCtrl.selectedBank.value,
-        onConfirm: (bank) {
-          _orderCtrl.selectedBank.value = bank;
-        },
       ),
     );
   }
@@ -283,18 +278,82 @@ class _OrderScreenState extends State<OrderScreen> {
       cartItems: widget.cartItems,
     );
     if (success) {
-      _cartCtrl.clearCart();
-      if (mounted) Navigator.of(context).pop();
-      AppDialogs.showTopSuccessSnackbar(
-        title: 'order_success'.tr,
-        subtitle: '$count ${'items'.tr} • ${fmtPrice(widget.total)} TMT',
-        icon: HugeIcons.strokeRoundedShoppingBag01,
-      );
-      if (_isOnlinePayment) {
-        final orderId = _orderCtrl.orders.isNotEmpty ? _orderCtrl.orders.first.id : null;
-        if (orderId != null) {
-          await _orderCtrl.initiateOnlinePayment(orderId);
+      final orderId = _orderCtrl.orders.isNotEmpty ? _orderCtrl.orders.first.id : null;
+      if (_isOnlinePayment && orderId != null) {
+        // ignore: avoid_print
+        print('\x1B[35m┌─── ONLINE PAYMENT FLOW ───────────────────────\x1B[0m');
+        // ignore: avoid_print
+        print('\x1B[35m│ orderId  : $orderId\x1B[0m');
+        // ignore: avoid_print
+        print('\x1B[35m│ bank     : ${_orderCtrl.selectedBank.value?.nameKey}\x1B[0m');
+        // ignore: avoid_print
+        print('\x1B[35m│ step 1   : clearing cart & closing order screen\x1B[0m');
+        // ignore: avoid_print
+        print('\x1B[35m└───────────────────────────────────────────────\x1B[0m');
+        _cartCtrl.clearCart();
+        if (mounted) Navigator.of(context).pop();
+        AppDialogs.showTopSuccessSnackbar(
+          title: 'order_success'.tr,
+          subtitle: '$count ${'items'.tr} • ${fmtPrice(widget.total)} TMT',
+          icon: HugeIcons.strokeRoundedShoppingBag01,
+        );
+        // Step 2: show loading while fetching payment URL from server
+        // ignore: avoid_print
+        print('\x1B[35m┌─── ONLINE PAYMENT LOADING ────────────────────\x1B[0m');
+        // ignore: avoid_print
+        print('\x1B[35m│ step 2   : fetching payment URL (loading dialog)\x1B[0m');
+        // ignore: avoid_print
+        print('\x1B[35m└───────────────────────────────────────────────\x1B[0m');
+        Get.dialog(const _PaymentLoadingDialog(), barrierDismissible: false);
+        final paymentUrl = await _orderCtrl.fetchPaymentUrl(orderId);
+        if (Get.isDialogOpen ?? false) Get.back();
+
+        if (paymentUrl != null && paymentUrl.isNotEmpty) {
+          // ignore: avoid_print
+          print('\x1B[35m┌─── ONLINE PAYMENT WEBVIEW OPEN ───────────────\x1B[0m');
+          // ignore: avoid_print
+          print('\x1B[35m│ step 3   : opening PaymentWebViewScreen\x1B[0m');
+          // ignore: avoid_print
+          print('\x1B[35m│ url      : $paymentUrl\x1B[0m');
+          // ignore: avoid_print
+          print('\x1B[35m│ strategy : intercept activate-order URL → auto close\x1B[0m');
+          // ignore: avoid_print
+          print('\x1B[35m└───────────────────────────────────────────────\x1B[0m');
+          await Get.to(() => PaymentWebViewScreen(url: paymentUrl));
+          // ignore: avoid_print
+          print('\x1B[35m┌─── PAYMENT WEBVIEW CLOSED ────────────────────\x1B[0m');
+          // ignore: avoid_print
+          print('\x1B[35m│ step 4   : WebView closed → going to MyOrdersScreen\x1B[0m');
+          // ignore: avoid_print
+          print('\x1B[35m└───────────────────────────────────────────────\x1B[0m');
+        } else {
+          Get.snackbar('error'.tr, 'payment_url_error'.tr,
+              backgroundColor: const Color(0xFFFFEBEE),
+              colorText: const Color(0xFFD32F2F),
+              snackPosition: SnackPosition.TOP);
         }
+        // Navigate to MyOrdersScreen after WebView closes (paid or cancelled)
+        Get.find<MainController>().currentIndex.value = 4;
+        await Future.delayed(const Duration(milliseconds: 200));
+        Get.to(() => const MyOrdersScreen(), preventDuplicates: true);
+      } else {
+        // ignore: avoid_print
+        print('\x1B[32m┌─── CASH/TERMINAL PAYMENT FLOW ────────────────\x1B[0m');
+        // ignore: avoid_print
+        print('\x1B[32m│ orderId  : $orderId\x1B[0m');
+        // ignore: avoid_print
+        print('\x1B[32m│ payment  : ${_selectedPayment?.nameTk}\x1B[0m');
+        // ignore: avoid_print
+        print('\x1B[32m│ clearing cart immediately\x1B[0m');
+        // ignore: avoid_print
+        print('\x1B[32m└───────────────────────────────────────────────\x1B[0m');
+        _cartCtrl.clearCart();
+        if (mounted) Navigator.of(context).pop();
+        AppDialogs.showTopSuccessSnackbar(
+          title: 'order_success'.tr,
+          subtitle: '$count ${'items'.tr} • ${fmtPrice(widget.total)} TMT',
+          icon: HugeIcons.strokeRoundedShoppingBag01,
+        );
       }
     } else {
       Get.snackbar(
@@ -405,10 +464,7 @@ class _OrderScreenState extends State<OrderScreen> {
                   // Bank selection — only when online payment is selected
                   if (_isOnlinePayment) ...[
                     const SizedBox(height: 12),
-                    Obx(() => _BankTile(
-                          selectedBank: _orderCtrl.selectedBank.value,
-                          onTap: _showBankDialog,
-                        )),
+                    _buildInlineBankSelector(),
                   ],
                   const SizedBox(height: 20),
 
@@ -584,6 +640,152 @@ class _OrderScreenState extends State<OrderScreen> {
             child: Text('retry'.tr, style: const TextStyle(color: Color(0xff22B241))),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInlineBankSelector() {
+    final halkbank = BankOption.all.first;
+    final otherBanks = BankOption.all.sublist(1);
+
+    return Obx(() {
+      final selectedBank = _orderCtrl.selectedBank.value;
+      return Column(
+        children: [
+          _buildBankCard(
+            bank: halkbank,
+            isSelected: selectedBank?.id == halkbank.id,
+            onTap: () {
+              _orderCtrl.selectedBank.value = halkbank;
+              setState(() => _bankExpanded = false);
+            },
+          ),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () => setState(() => _bankExpanded = !_bankExpanded),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _bankExpanded ? AppColors.primary.withOpacity(0.4) : const Color(0xFFE8E8E8),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Beýleki banklar',
+                      style: const TextStyle(
+                        fontFamily: 'Gilroy',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Color(0xFF4A4A4A),
+                      ),
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: _bankExpanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: Color(0xFF8E8E93),
+                      size: 22,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_bankExpanded) ...[
+            const SizedBox(height: 8),
+            ...otherBanks.map(
+              (bank) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _buildBankCard(
+                  bank: bank,
+                  isSelected: selectedBank?.id == bank.id,
+                  onTap: () => _orderCtrl.selectedBank.value = bank,
+                ),
+              ),
+            ),
+          ],
+        ],
+      );
+    });
+  }
+
+  Widget _buildBankCard({
+    required BankOption bank,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFE8E8E8),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected ? AppColors.primary.withOpacity(0.08) : Colors.black.withOpacity(0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: bank.imagePath != null
+                  ? Image.asset(bank.imagePath!, fit: BoxFit.contain)
+                  : const Center(
+                      child: Icon(Icons.account_balance_rounded, color: Color(0xFF8E8E93), size: 22),
+                    ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                bank.nameKey.tr,
+                style: TextStyle(
+                  fontFamily: 'Gilroy',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: isSelected ? const Color(0xFF1A1A1A) : const Color(0xFF4A4A4A),
+                ),
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected ? AppColors.primary : Colors.transparent,
+                border: Border.all(
+                  color: isSelected ? AppColors.primary : const Color(0xFFD0D0D0),
+                  width: 2,
+                ),
+              ),
+              child: isSelected ? const Icon(Icons.circle, color: Colors.white, size: 10) : null,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1584,7 +1786,22 @@ class _DeliveryDateTimePicker extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           // Time slots grid
-          GridView.builder(
+          Builder(builder: (context) {
+            // Hide past time slots when "today" is selected
+            final visibleTimes = isTomorrow
+                ? times
+                : times.where((t) {
+                    final parts = t.time2.split(':');
+                    if (parts.length < 2) return true;
+                    final slotEnd = TimeOfDay(
+                      hour: int.tryParse(parts[0]) ?? 0,
+                      minute: int.tryParse(parts[1]) ?? 0,
+                    );
+                    final now = TimeOfDay.now();
+                    return slotEnd.hour > now.hour ||
+                        (slotEnd.hour == now.hour && slotEnd.minute > now.minute);
+                  }).toList();
+            return GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -1593,9 +1810,9 @@ class _DeliveryDateTimePicker extends StatelessWidget {
               mainAxisSpacing: 10,
               childAspectRatio: 2.8,
             ),
-            itemCount: times.length,
+            itemCount: visibleTimes.length,
             itemBuilder: (_, i) {
-              final t = times[i];
+              final t = visibleTimes[i];
               final sel = selectedTime?.id == t.id;
               return GestureDetector(
                 onTap: () => onTimeSelected(t),
@@ -1637,7 +1854,8 @@ class _DeliveryDateTimePicker extends StatelessWidget {
                 ),
               );
             },
-          ),
+          );
+          }),
         ],
       ),
     );
@@ -1843,213 +2061,56 @@ class _RegionSearchDialogState extends State<_RegionSearchDialog> {
   }
 }
 
-// ─── Bank Tile (shows selected bank, opens dialog on tap) ────────────────────
+// ─── Payment Loading Dialog ───────────────────────────────────────────────────
 
-class _BankTile extends StatelessWidget {
-  final BankOption? selectedBank;
-  final VoidCallback onTap;
-
-  const _BankTile({required this.selectedBank, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selectedBank != null ? AppColors.primary : const Color(0xFFE8E8E8),
-            width: selectedBank != null ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: selectedBank != null ? AppColors.primary.withOpacity(0.08) : Colors.black.withOpacity(0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: selectedBank?.imagePath != null
-                  ? Image.asset(selectedBank!.imagePath!, fit: BoxFit.contain)
-                  : const Center(
-                      child: Icon(Icons.account_balance_rounded, color: Color(0xFF8E8E93), size: 22),
-                    ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                selectedBank != null ? selectedBank!.nameKey.tr : 'select_bank'.tr,
-                style: TextStyle(
-                  fontFamily: 'Gilroy',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  color: selectedBank != null ? const Color(0xFF1A1A1A) : const Color(0xFF8E8E93),
-                ),
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 16,
-              color: selectedBank != null ? AppColors.primary : const Color(0xFFB0B0B0),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Bank Select Dialog ───────────────────────────────────────────────────────
-
-class _BankSelectDialog extends StatefulWidget {
-  final List<BankOption> banks;
-  final BankOption? selectedBank;
-  final ValueChanged<BankOption> onConfirm;
-
-  const _BankSelectDialog({
-    required this.banks,
-    required this.selectedBank,
-    required this.onConfirm,
-  });
-
-  @override
-  State<_BankSelectDialog> createState() => _BankSelectDialogState();
-}
-
-class _BankSelectDialogState extends State<_BankSelectDialog> {
-  BankOption? _temp;
-
-  @override
-  void initState() {
-    super.initState();
-    _temp = widget.selectedBank;
-  }
+class _PaymentLoadingDialog extends StatelessWidget {
+  const _PaymentLoadingDialog();
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Center(
+                child: AppLoadingState(size: 36),
+              ),
+            ),
+            const SizedBox(height: 20),
             Text(
-              'select_bank'.tr,
+              'payment_redirecting'.tr,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: 'Gilroy',
                 fontWeight: FontWeight.w800,
-                fontSize: 20,
+                fontSize: 16,
                 color: Color(0xFF1A1A1A),
               ),
             ),
-            const SizedBox(height: 16),
-            ...widget.banks.map((bank) {
-              final isSelected = _temp?.id == bank.id;
-              return GestureDetector(
-                onTap: () => setState(() => _temp = bank),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : const Color(0xFFE8E8E8),
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5F5F5),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: bank.imagePath != null
-                            ? Image.asset(bank.imagePath!, fit: BoxFit.contain)
-                            : const Center(
-                                child: Icon(Icons.account_balance_rounded, color: Color(0xFF8E8E93), size: 22),
-                              ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          bank.nameKey.tr,
-                          style: TextStyle(
-                            fontFamily: 'Gilroy',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            color: isSelected ? const Color(0xFF1A1A1A) : const Color(0xFF4A4A4A),
-                          ),
-                        ),
-                      ),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isSelected ? AppColors.primary : Colors.transparent,
-                          border: Border.all(
-                            color: isSelected ? AppColors.primary : const Color(0xFFD0D0D0),
-                            width: 2,
-                          ),
-                        ),
-                        child: isSelected
-                            ? const Icon(Icons.circle, color: Colors.white, size: 10)
-                            : null,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
             const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _temp == null
-                    ? null
-                    : () {
-                        widget.onConfirm(_temp!);
-                        Navigator.of(context).pop();
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  disabledBackgroundColor: AppColors.primary.withOpacity(0.4),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: Text(
-                  'continue'.tr,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: 'Gilroy',
-                  ),
-                ),
+            Text(
+              'payment_redirecting_desc'.tr,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Gilroy',
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
+                color: Color(0xFF8E8E93),
               ),
             ),
           ],

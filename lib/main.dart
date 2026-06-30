@@ -59,7 +59,7 @@ class AtlasApp extends StatelessWidget {
     String langCode = storage.read('langCode') ?? 'tk';
 
     return GetMaterialApp(
-      title: 'Atlas',
+      title: 'Ter Market',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       translations: AppTranslations(),

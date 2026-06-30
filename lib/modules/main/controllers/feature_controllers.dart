@@ -115,7 +115,7 @@ class FavoritesController extends GetxController {
     final storage = Get.find<GetStorage>();
     var id = storage.read<String>('device_id');
     if (id == null) {
-      id = 'atlas-${DateTime.now().millisecondsSinceEpoch}';
+      id = 'termarket-${DateTime.now().millisecondsSinceEpoch}';
       storage.write('device_id', id);
     }
     return id;

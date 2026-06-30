@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -33,6 +35,7 @@ class OrderController extends GetxController {
   var selectedBank = Rx<BankOption?>(null);
   var isInitiatingPayment = false.obs;
   var lastCreatedOrderId = Rx<int?>(null);
+  var isCancellingOrder = false.obs;
 
   String get deviceId {
     var id = _storage.read<String>('device_id');
@@ -210,29 +213,60 @@ class OrderController extends GetxController {
     }
   }
 
-  Future<void> initiateOnlinePayment(int orderId) async {
-    if (selectedBank.value == null) return;
+  Future<bool> cancelOrder(int orderId) async {
+    isCancellingOrder.value = true;
+    try {
+      await _api.cancelOrder(orderId, deviceId);
+      await fetchMyOrders();
+      return true;
+    } catch (e) {
+      return false;
+    } finally {
+      isCancellingOrder.value = false;
+    }
+  }
+
+  // Returns the payment URL without launching it, so the caller controls the dialog lifecycle.
+  Future<String?> fetchPaymentUrl(int orderId) async {
+    if (selectedBank.value == null) return null;
     isInitiatingPayment.value = true;
     try {
       final url = await _api.initiateOnlinePayment(
         orderId: orderId,
         bankId: selectedBank.value!.id,
       );
-      if (url != null && url.isNotEmpty) {
-        await launchUrlString(url, mode: LaunchMode.externalApplication);
-      } else {
-        Get.snackbar('error'.tr, 'payment_url_error'.tr,
-            backgroundColor: const Color(0xFFFFEBEE),
-            colorText: const Color(0xFFD32F2F),
-            snackPosition: SnackPosition.TOP);
-      }
+      // ignore: avoid_print
+      print('\x1B[35m┌─── PAYMENT URL ───────────────────────────────\x1B[0m');
+      // ignore: avoid_print
+      print('\x1B[35m│ url    : $url\x1B[0m');
+      // ignore: avoid_print
+      print('\x1B[35m│ bank   : ${selectedBank.value?.nameKey}\x1B[0m');
+      // ignore: avoid_print
+      print('\x1B[35m└───────────────────────────────────────────────\x1B[0m');
+      return url;
     } catch (e) {
+      // ignore: avoid_print
+      print('\x1B[31m┌─── PAYMENT URL ERROR ─────────────────────────\x1B[0m');
+      // ignore: avoid_print
+      print('\x1B[31m│ $e\x1B[0m');
+      // ignore: avoid_print
+      print('\x1B[31m└───────────────────────────────────────────────\x1B[0m');
+      return null;
+    } finally {
+      isInitiatingPayment.value = false;
+    }
+  }
+
+  Future<void> initiateOnlinePayment(int orderId) async {
+    final url = await fetchPaymentUrl(orderId);
+    if (url != null && url.isNotEmpty) {
+      final mode = Platform.isIOS ? LaunchMode.inAppWebView : LaunchMode.inAppBrowserView;
+      await launchUrlString(url, mode: mode);
+    } else {
       Get.snackbar('error'.tr, 'payment_url_error'.tr,
           backgroundColor: const Color(0xFFFFEBEE),
           colorText: const Color(0xFFD32F2F),
           snackPosition: SnackPosition.TOP);
-    } finally {
-      isInitiatingPayment.value = false;
     }
   }
 }

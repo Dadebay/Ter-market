@@ -98,18 +98,24 @@ class HomeScreen extends GetView<HomeController> {
                     onTap: (p) => _onProductTap(context, p),
                     onCart: _onCartPressed,
                   )),
-              const SizedBox(height: 30),
-              _buildSectionHeader(
-                'most_sold'.tr,
-                () => Nav.push(context, () => CategoryDetailScreen(categoryName: 'most_sold'.tr, mostSoldMode: true)),
-              ),
-              Obx(() => _HorizontalProductList(
-                    isLoading: productController.isLoadingMostSold.value,
-                    products: productController.mostSoldProducts,
-                    onTap: (p) => _onProductTap(context, p),
-                    onCart: _onCartPressed,
-                  )),
-              const SizedBox(height: 40),
+              Obx(() => productController.isLoadingMostSold.value || productController.mostSoldProducts.isNotEmpty
+                  ? Column(
+                      children: [
+                        const SizedBox(height: 30),
+                        _buildSectionHeader(
+                          'most_sold'.tr,
+                          () => Nav.push(context, () => CategoryDetailScreen(categoryName: 'most_sold'.tr, mostSoldMode: true)),
+                        ),
+                        _HorizontalProductList(
+                          isLoading: productController.isLoadingMostSold.value,
+                          products: productController.mostSoldProducts,
+                          onTap: (p) => _onProductTap(context, p),
+                          onCart: _onCartPressed,
+                        ),
+                        const SizedBox(height: 40),
+                      ],
+                    )
+                  : const SizedBox.shrink()),
             ],
           ),
         ),

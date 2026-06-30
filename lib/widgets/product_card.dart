@@ -86,9 +86,10 @@ class _ProductCardState extends State<ProductCard> {
               child: Stack(
                 children: [
                   Container(
+                    padding: const EdgeInsets.all(8),
                     height: 140,
                     width: double.infinity,
-                    color: const Color(0xFFF9F9F9),
+                    color: Colors.white,
                     child: widget.imageUrl.startsWith('assets')
                         ? Image.asset(widget.imageUrl, fit: BoxFit.contain)
                         : CachedNetworkImage(
@@ -139,6 +140,7 @@ class _ProductCardState extends State<ProductCard> {
                 ],
               ),
             ),
+            Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
             Padding(
               padding: const EdgeInsets.only(left: 8, right: 8, top: 6, bottom: 4),
               child: Column(

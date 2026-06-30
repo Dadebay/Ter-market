@@ -6,9 +6,27 @@ import 'package:get_storage/get_storage.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/core/api/api_service.dart';
 import 'package:atlas/models/order_model.dart';
+import 'package:atlas/modules/orders/controllers/order_controller.dart';
 import 'package:atlas/modules/profile/controllers/language_controller.dart';
 import 'package:atlas/utils/price_format.dart';
 import 'package:iconly/iconly.dart';
+
+String localizePaymentStatus(String status) {
+  switch (status.toLowerCase()) {
+    case 'paid':
+      return 'payment_status_paid'.tr;
+    case 'kartdan online':
+    case 'онлайн картой':
+      return 'payment_status_online'.tr;
+    case 'nagt':
+    case 'наличными':
+      return 'payment_status_cash'.tr;
+    case 'terminal':
+      return 'payment_status_terminal'.tr;
+    default:
+      return status;
+  }
+}
 
 class MyOrdersScreen extends StatefulWidget {
   const MyOrdersScreen({super.key});
@@ -24,13 +42,15 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
   final _hasError = false.obs;
 
   late final TabController _tabController;
+  late final OrderController _orderCtrl;
 
   static const _waitingStatuses = {'pending', '0'};
-  static const _acceptedStatuses = {'accepted', '1', 'processing', 'on_way', 'delivered'};
+  static const _acceptedStatuses = {'accepted', '1', 'processing', 'on_way', 'delivered', 'paid'};
 
   @override
   void initState() {
     super.initState();
+    _orderCtrl = Get.isRegistered<OrderController>() ? Get.find<OrderController>() : Get.put(OrderController());
     _tabController = TabController(length: 2, vsync: this);
     _fetchOrders();
   }
@@ -57,6 +77,43 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
     }
   }
 
+  Future<void> _cancelOrder(int orderId) async {
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _CancelConfirmSheet(),
+    );
+    if (confirmed != true) return;
+
+    final success = await _orderCtrl.cancelOrder(orderId);
+    if (success) {
+      await _fetchOrders();
+      if (mounted) {
+        Get.snackbar(
+          'cancel_order_success'.tr,
+          '',
+          backgroundColor: const Color(0xFFE8F5E9),
+          colorText: const Color(0xFF2E7D32),
+          snackPosition: SnackPosition.TOP,
+          icon: const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF2E7D32)),
+          margin: const EdgeInsets.all(12),
+        );
+      }
+    } else {
+      if (mounted) {
+        Get.snackbar(
+          'error'.tr,
+          'cancel_order_error'.tr,
+          backgroundColor: Colors.red.shade50,
+          colorText: Colors.red,
+          snackPosition: SnackPosition.TOP,
+          margin: const EdgeInsets.all(12),
+        );
+      }
+    }
+  }
+
   String _formatDate(String? isoDate) {
     if (isoDate == null) return '';
     try {
@@ -67,8 +124,8 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
     }
   }
 
-  List<OrderModel> get _waitingOrders => _orders.where((o) => _waitingStatuses.contains(o.status)).toList();
-  List<OrderModel> get _acceptedOrders => _orders.where((o) => _acceptedStatuses.contains(o.status)).toList();
+  List<OrderModel> get _waitingOrders => _orders.where((o) => _waitingStatuses.contains(o.status) && o.orderStatus != 'cancelled').toList();
+  List<OrderModel> get _acceptedOrders => _orders.where((o) => _acceptedStatuses.contains(o.status) || o.orderStatus == 'cancelled').toList();
 
   @override
   Widget build(BuildContext context) {
@@ -184,6 +241,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
               lang: lang,
               formatDate: _formatDate,
               onRefresh: _fetchOrders,
+              onCancel: _cancelOrder,
             ),
             _OrderList(
               orders: _acceptedOrders,
@@ -203,12 +261,14 @@ class _OrderList extends StatelessWidget {
   final String lang;
   final String Function(String?) formatDate;
   final Future<void> Function() onRefresh;
+  final Future<void> Function(int orderId)? onCancel;
 
   const _OrderList({
     required this.orders,
     required this.lang,
     required this.formatDate,
     required this.onRefresh,
+    this.onCancel,
   });
 
   @override
@@ -274,6 +334,7 @@ class _OrderList extends StatelessWidget {
                   order: orders[index],
                   lang: lang,
                   formatDate: formatDate,
+                  onCancel: onCancel,
                 );
               },
             ),
@@ -285,43 +346,79 @@ class _OrderCard extends StatelessWidget {
   final OrderModel order;
   final String lang;
   final String Function(String?) formatDate;
+  final Future<void> Function(int orderId)? onCancel;
 
   const _OrderCard({
     required this.order,
     required this.lang,
     required this.formatDate,
+    this.onCancel,
   });
+
+  bool get _isCancelled => order.orderStatus == 'cancelled';
 
   @override
   Widget build(BuildContext context) {
     final dateStr = formatDate(order.createdAt);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
+    return Opacity(
+      opacity: _isCancelled ? 0.75 : 1.0,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: _isCancelled ? Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3), width: 1.5) : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: _isCancelled ? 0.03 : 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // ── Cancelled Banner ────────────────────────────
+            if (_isCancelled)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFEBEE),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Row(
+                  children: [
+                    const HugeIcon(
+                      icon: HugeIcons.strokeRoundedCancel01,
+                      color: Color(0xFFEF4444),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'status_cancelled'.tr,
+                      style: const TextStyle(
+                        fontFamily: 'Gilroy',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: Color(0xFFEF4444),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           // ── Header ──────────────────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              color: _isCancelled ? const Color(0xFFF5F5F5) : AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: _isCancelled ? BorderRadius.zero : const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
-                const HugeIcon(
+                HugeIcon(
                   icon: HugeIcons.strokeRoundedShoppingBag01,
-                  color: AppColors.primary,
+                  color: _isCancelled ? Colors.black38 : AppColors.primary,
                   size: 20,
                 ),
                 const SizedBox(width: 10),
@@ -330,24 +427,33 @@ class _OrderCard extends StatelessWidget {
                     order.orderNumber ?? order.id.toString(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                       fontFamily: 'Gilroy',
-                      color: AppColors.primary,
+                      color: _isCancelled ? Colors.black45 : AppColors.primary,
                     ),
                   ),
                 ),
-                if (dateStr.isNotEmpty)
-                  Text(
-                    dateStr,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: 'Gilroy',
-                      color: Colors.black45,
-                    ),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (dateStr.isNotEmpty)
+                      Text(
+                        dateStr,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Gilroy',
+                          color: Colors.black45,
+                        ),
+                      ),
+                    if (order.orderStatus != null) ...[
+                      if (dateStr.isNotEmpty) const SizedBox(height: 4),
+                      _StatusBadge(status: order.orderStatus!),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
@@ -371,42 +477,15 @@ class _OrderCard extends StatelessWidget {
           ),
 
           // ── Quick info ───────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Column(
-              children: [
-                if (order.orderStatus != null)
-                  Row(
-                    children: [
-                      const HugeIcon(
-                        icon: HugeIcons.strokeRoundedInformationCircle,
-                        color: Colors.black45,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${'order_status'.tr}: ',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          fontFamily: 'Gilroy',
-                          color: Colors.black45,
-                        ),
-                      ),
-                      _StatusBadge(status: order.orderStatus!),
-                    ],
-                  ),
-                if (order.regionDetail != null) ...[
-                  if (order.orderStatus != null) const SizedBox(height: 8),
-                  _InfoRow(
-                    icon: HugeIcons.strokeRoundedLocationAdd01,
-                    label: 'region'.tr,
-                    value: '${order.regionDetail!.name} (+${fmtPrice(order.isExpressDelivery ? order.regionDetail!.exPrice : order.regionDetail!.price)} TMT)',
-                  ),
-                ],
-              ],
+          if (order.regionDetail != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: _InfoRow(
+                icon: HugeIcons.strokeRoundedLocationAdd01,
+                label: 'region'.tr,
+                value: '${order.regionDetail!.name} (+${fmtPrice(order.isExpressDelivery ? order.regionDetail!.exPrice : order.regionDetail!.price)} TMT)',
+              ),
             ),
-          ),
 
           // ── Details Section ────────────
           Container(
@@ -486,7 +565,7 @@ class _OrderCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 5),
                         Text(
-                          order.paymentStatus!,
+                          localizePaymentStatus(order.paymentStatus!),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -521,7 +600,41 @@ class _OrderCard extends StatelessWidget {
               ],
             ),
           ),
-        ],
+
+          // ── Cancel button — only for pending (non-cancelled) orders ────
+          if (onCancel != null && !_isCancelled && (order.status == 'pending' || order.status == '0')) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: () => onCancel!(order.id),
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedCancel01,
+                    color: Color(0xFFEF4444),
+                    size: 18,
+                  ),
+                  label: Text(
+                    'cancel_order'.tr,
+                    style: const TextStyle(
+                      fontFamily: 'Gilroy',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: Color(0xFFEF4444),
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ]),
       ),
     );
   }
@@ -654,7 +767,9 @@ class _StatusBadge extends StatelessWidget {
   static const _colors = <String, Color>{
     'pending': Color(0xFFF59E0B),
     'accepted': Color(0xFF10B981),
+    'paid': Color(0xFF10B981),
     'processing': Color(0xFF3B82F6),
+    'sending': Color(0xFF3B82F6),
     'on_way': Color(0xFF8B5CF6),
     'delivered': Color(0xFF22C55E),
     'cancelled': Color(0xFFEF4444),
@@ -663,7 +778,9 @@ class _StatusBadge extends StatelessWidget {
   static const _labelKeys = <String, String>{
     'pending': 'status_pending',
     'accepted': 'status_accepted',
+    'paid': 'status_paid',
     'processing': 'status_processing',
+    'sending': 'status_sending',
     'on_way': 'status_on_way',
     'delivered': 'status_delivered',
     'cancelled': 'status_cancelled',
@@ -689,6 +806,124 @@ class _StatusBadge extends StatelessWidget {
           fontWeight: FontWeight.w600,
           fontFamily: 'Gilroy',
           color: color,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Cancel Confirm Bottom Sheet ─────────────────────────────────────────────
+
+class _CancelConfirmSheet extends StatelessWidget {
+  const _CancelConfirmSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFEBEE),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Center(
+                child: HugeIcon(
+                  icon: HugeIcons.strokeRoundedCancel01,
+                  color: Color(0xFFEF4444),
+                  size: 28,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'cancel_order_confirm_title'.tr,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Gilroy',
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'cancel_order_confirm_desc'.tr,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Gilroy',
+                fontWeight: FontWeight.w400,
+                fontSize: 14,
+                color: Color(0xFF8E8E93),
+              ),
+            ),
+            const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF4444),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  'cancel_order'.tr,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    fontFamily: 'Gilroy',
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                style: TextButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  'cancel'.tr,
+                  style: const TextStyle(
+                    color: Color(0xFF8E8E93),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Gilroy',
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
         ),
       ),
     );

@@ -265,12 +265,12 @@ class _BrandSelectScreenState extends State<BrandSelectScreen> {
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
                     child: Container(
                       color: Colors.white,
-                      padding: const EdgeInsets.all(10),
+                      // padding: const EdgeInsets.all(10),
                       child: brand.icon != null
                           ? AppNetworkImage(
                               url: ApiClient.imgUrl + "/" + brand.icon!,
                               fit: BoxFit.contain,
-                              backgroundColor: const Color(0xFFFAFAFA),
+                              backgroundColor: Colors.white,
                             )
                           : const Icon(Icons.storefront_outlined, color: Colors.grey),
                     ),

@@ -161,7 +161,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
                     url: banner.image,
                     width: double.infinity,
                     height: 160,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.fill,
                   ),
                 ),
               ),

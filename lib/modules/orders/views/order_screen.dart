@@ -43,7 +43,6 @@ class _OrderScreenState extends State<OrderScreen> {
   RegionModel? _selectedRegion;
   bool _isExpressDelivery = false;
   bool _isDeliveryTomorrow = false;
-  bool _bankExpanded = false;
 
   bool get _isOnlinePayment {
     final name = _selectedPayment?.nameTk.toLowerCase() ?? '';
@@ -78,6 +77,10 @@ class _OrderScreenState extends State<OrderScreen> {
     }
     if (_orderCtrl.dialogNotices.isEmpty) {
       _orderCtrl.fetchDialogs();
+    }
+    // After 22:00 there are no delivery slots for today — default to tomorrow
+    if (DateTime.now().hour >= 22) {
+      _isDeliveryTomorrow = true;
     }
     _phoneCtrl.text = '+993 ';
     _phoneCtrl.selection = TextSelection.fromPosition(
@@ -191,16 +194,68 @@ class _OrderScreenState extends State<OrderScreen> {
       onItemSelected: (item) {
         final name = item.nameTk.toLowerCase();
         final isOnline = name.contains('online') || name.contains('onlaýn') || name.contains('onlayn');
-        setState(() {
-          _selectedPayment = item;
-          _bankExpanded = false;
-        });
-        _orderCtrl.selectedBank.value = isOnline ? BankOption.all.first : null;
+        setState(() => _selectedPayment = item);
+        if (isOnline) {
+          _orderCtrl.selectedBank.value = null;
+          WidgetsBinding.instance.addPostFrameCallback((_) => _showBankDialog());
+        } else {
+          _orderCtrl.selectedBank.value = null;
+        }
       },
       itemBuilder: (item) => _PaymentTile(
         method: item,
         lang: _lang,
         isSelected: _selectedPayment?.id == item.id,
+      ),
+    );
+  }
+
+  void _showBankDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'select_bank'.tr,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        fontFamily: 'Gilroy',
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ...BankOption.all.map((bank) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _BankDialogTile(
+                      bank: bank,
+                      onTap: () {
+                        _orderCtrl.selectedBank.value = bank;
+                        Navigator.pop(context);
+                      },
+                    ),
+                  )),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -461,10 +516,68 @@ class _OrderScreenState extends State<OrderScreen> {
                       onTap: () => _showPaymentDialog(),
                     );
                   }),
-                  // Bank selection — only when online payment is selected
+                  // Selected bank chip — only when online payment is selected
                   if (_isOnlinePayment) ...[
-                    const SizedBox(height: 12),
-                    _buildInlineBankSelector(),
+                    const SizedBox(height: 10),
+                    Obx(() {
+                      final bank = _orderCtrl.selectedBank.value;
+                      return GestureDetector(
+                        onTap: _showBankDialog,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: bank != null ? AppColors.primary.withOpacity(0.06) : const Color(0xFFF5F5F5),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: bank != null ? AppColors.primary.withOpacity(0.4) : const Color(0xFFE8E8E8),
+                              width: bank != null ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              if (bank?.imagePath != null)
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: Image.asset(bank!.imagePath!, fit: BoxFit.contain),
+                                )
+                              else
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.account_balance_rounded, color: Color(0xFF8E8E93), size: 20),
+                                ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  bank != null ? bank.nameKey.tr : 'select_bank'.tr,
+                                  style: TextStyle(
+                                    fontFamily: 'Gilroy',
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                    color: bank != null ? AppColors.primary : const Color(0xFF8E8E93),
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 14,
+                                color: bank != null ? AppColors.primary : const Color(0xFFB0B0B0),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
                   ],
                   const SizedBox(height: 20),
 
@@ -530,6 +643,19 @@ class _OrderScreenState extends State<OrderScreen> {
                             onChanged: (val) => setState(() {
                               _isExpressDelivery = val;
                               if (val) _selectedDeliveryTime = null;
+                              // Sync delivery type to the correct API entry
+                              final types = _orderCtrl.deliveryTypes;
+                              if (val) {
+                                _selectedDeliveryType = types.firstWhereOrNull(
+                                      (t) => t.titleTk.toLowerCase().contains('express') || t.titleRu.toLowerCase().contains('express'),
+                                    ) ??
+                                    (types.length > 1 ? types.last : types.firstOrNull);
+                              } else {
+                                _selectedDeliveryType = types.firstWhereOrNull(
+                                      (t) => !t.titleTk.toLowerCase().contains('express') && !t.titleRu.toLowerCase().contains('express'),
+                                    ) ??
+                                    types.firstOrNull;
+                              }
                             }),
                           ),
                         ],
@@ -640,152 +766,6 @@ class _OrderScreenState extends State<OrderScreen> {
             child: Text('retry'.tr, style: const TextStyle(color: Color(0xff22B241))),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildInlineBankSelector() {
-    final halkbank = BankOption.all.first;
-    final otherBanks = BankOption.all.sublist(1);
-
-    return Obx(() {
-      final selectedBank = _orderCtrl.selectedBank.value;
-      return Column(
-        children: [
-          _buildBankCard(
-            bank: halkbank,
-            isSelected: selectedBank?.id == halkbank.id,
-            onTap: () {
-              _orderCtrl.selectedBank.value = halkbank;
-              setState(() => _bankExpanded = false);
-            },
-          ),
-          const SizedBox(height: 8),
-          GestureDetector(
-            onTap: () => setState(() => _bankExpanded = !_bankExpanded),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: _bankExpanded ? AppColors.primary.withOpacity(0.4) : const Color(0xFFE8E8E8),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Beýleki banklar',
-                      style: const TextStyle(
-                        fontFamily: 'Gilroy',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: Color(0xFF4A4A4A),
-                      ),
-                    ),
-                  ),
-                  AnimatedRotation(
-                    turns: _bankExpanded ? 0.5 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: Color(0xFF8E8E93),
-                      size: 22,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_bankExpanded) ...[
-            const SizedBox(height: 8),
-            ...otherBanks.map(
-              (bank) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _buildBankCard(
-                  bank: bank,
-                  isSelected: selectedBank?.id == bank.id,
-                  onTap: () => _orderCtrl.selectedBank.value = bank,
-                ),
-              ),
-            ),
-          ],
-        ],
-      );
-    });
-  }
-
-  Widget _buildBankCard({
-    required BankOption bank,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : const Color(0xFFE8E8E8),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isSelected ? AppColors.primary.withOpacity(0.08) : Colors.black.withOpacity(0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: bank.imagePath != null
-                  ? Image.asset(bank.imagePath!, fit: BoxFit.contain)
-                  : const Center(
-                      child: Icon(Icons.account_balance_rounded, color: Color(0xFF8E8E93), size: 22),
-                    ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                bank.nameKey.tr,
-                style: TextStyle(
-                  fontFamily: 'Gilroy',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  color: isSelected ? const Color(0xFF1A1A1A) : const Color(0xFF4A4A4A),
-                ),
-              ),
-            ),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected ? AppColors.primary : Colors.transparent,
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : const Color(0xFFD0D0D0),
-                  width: 2,
-                ),
-              ),
-              child: isSelected ? const Icon(Icons.circle, color: Colors.white, size: 10) : null,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1766,41 +1746,47 @@ class _DeliveryDateTimePicker extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Day tabs
-          Row(
-            children: [
-              _DayTab(
-                label: 'date_today'.tr,
-                date: _formatDate(today),
-                isSelected: !isTomorrow,
-                onTap: () => onDayChanged(false),
-              ),
-              const SizedBox(width: 10),
-              _DayTab(
-                label: 'date_tomorrow'.tr,
-                date: _formatDate(tomorrow),
-                isSelected: isTomorrow,
-                onTap: () => onDayChanged(true),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          // Time slots grid
-          Builder(builder: (context) {
-            // Hide past time slots when "today" is selected
-            final visibleTimes = isTomorrow
-                ? times
-                : times.where((t) {
-                    final parts = t.time2.split(':');
-                    if (parts.length < 2) return true;
-                    final slotEnd = TimeOfDay(
-                      hour: int.tryParse(parts[0]) ?? 0,
-                      minute: int.tryParse(parts[1]) ?? 0,
-                    );
-                    final now = TimeOfDay.now();
-                    return slotEnd.hour > now.hour ||
-                        (slotEnd.hour == now.hour && slotEnd.minute > now.minute);
-                  }).toList();
+          // Compute available slots for today to know if tab is usable
+          Builder(builder: (ctx) {
+            final availableToday = times.where((t) {
+              final parts = t.time2.split(':');
+              if (parts.length < 2) return true;
+              final slotEnd = TimeOfDay(
+                hour: int.tryParse(parts[0]) ?? 0,
+                minute: int.tryParse(parts[1]) ?? 0,
+              );
+              final now = TimeOfDay.now();
+              return slotEnd.hour > now.hour ||
+                  (slotEnd.hour == now.hour && slotEnd.minute > now.minute);
+            }).toList();
+            final todayEnabled = availableToday.isNotEmpty;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Day tabs
+                Row(
+                  children: [
+                    _DayTab(
+                      label: 'date_today'.tr,
+                      date: _formatDate(today),
+                      isSelected: !isTomorrow,
+                      isDisabled: !todayEnabled,
+                      onTap: todayEnabled ? () => onDayChanged(false) : null,
+                    ),
+                    const SizedBox(width: 10),
+                    _DayTab(
+                      label: 'date_tomorrow'.tr,
+                      date: _formatDate(tomorrow),
+                      isSelected: isTomorrow,
+                      onTap: () => onDayChanged(true),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                // Time slots grid
+                Builder(builder: (context) {
+                  final visibleTimes = isTomorrow ? times : availableToday;
             return GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -1855,6 +1841,9 @@ class _DeliveryDateTimePicker extends StatelessWidget {
               );
             },
           );
+                }),
+              ],
+            );
           }),
         ],
       ),
@@ -1866,29 +1855,45 @@ class _DayTab extends StatelessWidget {
   final String label;
   final String date;
   final bool isSelected;
-  final VoidCallback onTap;
+  final bool isDisabled;
+  final VoidCallback? onTap;
 
   const _DayTab({
     required this.label,
     required this.date,
     required this.isSelected,
-    required this.onTap,
+    this.isDisabled = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = isDisabled
+        ? const Color(0xFFB0B0B0)
+        : isSelected
+            ? AppColors.primary
+            : const Color(0xFF1A1A1A);
+
     return Expanded(
       child: GestureDetector(
-        onTap: onTap,
+        onTap: isDisabled ? null : onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary.withOpacity(0.08) : const Color(0xFFF5F5F5),
+            color: isDisabled
+                ? const Color(0xFFF0F0F0)
+                : isSelected
+                    ? AppColors.primary.withOpacity(0.08)
+                    : const Color(0xFFF5F5F5),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? AppColors.primary : const Color(0xFFE8E8E8),
-              width: isSelected ? 1.5 : 1,
+              color: isDisabled
+                  ? const Color(0xFFE0E0E0)
+                  : isSelected
+                      ? AppColors.primary
+                      : const Color(0xFFE8E8E8),
+              width: isSelected && !isDisabled ? 1.5 : 1,
             ),
           ),
           child: Column(
@@ -1899,7 +1904,7 @@ class _DayTab extends StatelessWidget {
                   fontFamily: 'Gilroy',
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
-                  color: isSelected ? AppColors.primary : const Color(0xFF1A1A1A),
+                  color: effectiveColor,
                 ),
               ),
               const SizedBox(height: 2),
@@ -1909,7 +1914,7 @@ class _DayTab extends StatelessWidget {
                   fontFamily: 'Gilroy',
                   fontWeight: FontWeight.w500,
                   fontSize: 12,
-                  color: isSelected ? AppColors.primary : const Color(0xFF8E8E93),
+                  color: isDisabled ? const Color(0xFFB0B0B0) : isSelected ? AppColors.primary : const Color(0xFF8E8E93),
                 ),
               ),
             ],
@@ -2054,6 +2059,71 @@ class _RegionSearchDialogState extends State<_RegionSearchDialog> {
                       },
                     ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Bank Dialog Tile ─────────────────────────────────────────────────────────
+
+class _BankDialogTile extends StatelessWidget {
+  final BankOption bank;
+  final VoidCallback onTap;
+
+  const _BankDialogTile({required this.bank, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8F8F8),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE8E8E8)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: bank.imagePath != null
+                  ? Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Image.asset(bank.imagePath!, fit: BoxFit.contain),
+                    )
+                  : const Center(
+                      child: Icon(Icons.account_balance_rounded, color: Color(0xFF8E8E93), size: 24),
+                    ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                bank.nameKey.tr,
+                style: const TextStyle(
+                  fontFamily: 'Gilroy',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 15, color: Color(0xFFB0B0B0)),
           ],
         ),
       ),

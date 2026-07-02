@@ -10,7 +10,7 @@ class BankOption {
         const BankOption(id: 1, nameKey: 'bank_halkbank', name: 'Halkbank', imagePath: 'assets/images/halk.webp'),
         const BankOption(id: 2, nameKey: 'bank_rysgalbank', name: 'Rysgalbank', imagePath: 'assets/images/rysgal.webp'),
         const BankOption(id: 3, nameKey: 'bank_senagatbank', name: 'Senagatbank', imagePath: 'assets/images/senagat.webp'),
-        const BankOption(id: 4, nameKey: 'bank_wneskbank', name: 'Wneskbank'),
+        // const BankOption(id: 4, nameKey: 'bank_wneskbank', name: 'Wneskbank'),
       ];
 }
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:atlas/admin/admin_api_service.dart';
+import 'package:atlas/admin/admin_login_screen.dart';
 import 'package:atlas/admin/admin_orders_screen.dart';
 import 'package:atlas/core/lang/app_translations.dart';
 import 'package:atlas/core/theme/app_theme.dart';
@@ -24,13 +25,17 @@ void main() async {
   Get.put(GetStorage());
   Get.put(LanguageController());
 
+  print('[Admin] isLoggedIn=${AdminApiService.isLoggedIn} access=${AdminApiService.accessToken}');
+
   final localNotificationsService = LocalNotificationsService.instance();
   await localNotificationsService.init();
 
   final firebaseMessagingService = FirebaseMessagingService.instance();
   await firebaseMessagingService.init(localNotificationsService: localNotificationsService);
 
-  await _registerAdminDevice();
+  if (AdminApiService.isLoggedIn) {
+    await _registerAdminDevice();
+  }
 
   runApp(const AdminApp());
 }
@@ -70,7 +75,11 @@ class AdminApp extends StatelessWidget {
       translations: AppTranslations(),
       locale: const Locale('tk'),
       fallbackLocale: const Locale('tk'),
-      home: const AdminOrdersScreen(),
+      home: () {
+        final loggedIn = AdminApiService.isLoggedIn;
+        print('[Admin] home decision: loggedIn=$loggedIn -> ${loggedIn ? 'AdminOrdersScreen' : 'AdminLoginScreen'}');
+        return loggedIn ? const AdminOrdersScreen() : const AdminLoginScreen();
+      }(),
       defaultTransition: Transition.cupertino,
       builder: (context, child) {
         return GlobalSafeAreaWrapper(child: child ?? const SizedBox.shrink());

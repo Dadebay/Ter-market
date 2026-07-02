@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Ter Market (User App)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart"
+    },
+    {
+      "name": "Ter Market Admin",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_admin.dart"
+    }
+  ]
+}

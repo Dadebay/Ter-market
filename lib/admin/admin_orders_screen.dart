@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:atlas/admin/admin_api_service.dart';
+import 'package:atlas/admin/admin_login_screen.dart';
 import 'package:atlas/admin/admin_order_model.dart';
 import 'package:atlas/utils/price_format.dart';
 
@@ -24,6 +25,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
+    print('[Admin] AdminOrdersScreen açıldı');
     _tabController = TabController(length: 2, vsync: this);
     _fetchOrders();
   }
@@ -61,6 +63,15 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> with SingleTicker
     }
   }
 
+  Future<void> _logout() async {
+    await AdminApiService.logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
+      (route) => false,
+    );
+  }
+
   List<AdminOrderModel> get _pendingOrders => _allOrders.where((o) => _pendingStatuses.contains(o.status)).toList();
   List<AdminOrderModel> get _otherOrders => _allOrders.where((o) => !_pendingStatuses.contains(o.status)).toList();
 
@@ -85,6 +96,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> with SingleTicker
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.black87),
             onPressed: _fetchOrders,
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.black87),
+            onPressed: _logout,
           ),
         ],
         bottom: TabBar(
@@ -211,6 +226,8 @@ class _AdminOrderCard extends StatelessWidget {
         return const Color(0xFF10B981);
       case 'processing':
         return const Color(0xFF3B82F6);
+      case 'sending':
+        return const Color(0xFF8B5CF6);
       case 'on_way':
         return const Color(0xFF8B5CF6);
       case 'delivered':
@@ -232,6 +249,8 @@ class _AdminOrderCard extends StatelessWidget {
         return 'Kabul edildi';
       case 'processing':
         return 'Işlenýär';
+      case 'sending':
+        return 'Ýola çykaryldy';
       case 'on_way':
         return 'Ýolda';
       case 'delivered':

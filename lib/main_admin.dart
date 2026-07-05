@@ -57,7 +57,7 @@ Future<void> _registerAdminDevice() async {
       return;
     }
     print('[Admin] FCM token: $fcmToken');
-    await AdminApiService().registerAdminDeviwce(fcmToken);
+    await AdminApiService().registerAdminDevice(fcmToken);
     print('[Admin] Device registered successfully');
   } catch (e) {
     print('[Admin] Device registration failed (non-fatal): $e');

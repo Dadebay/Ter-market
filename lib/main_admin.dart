@@ -42,21 +42,22 @@ void main() async {
 
 Future<void> _registerAdminDevice() async {
   try {
-    final storage = Get.find<GetStorage>();
-    var deviceId = storage.read<String>('device_id');
-    if (deviceId == null || deviceId.isEmpty) {
-      deviceId = 'atlas-admin-${DateTime.now().millisecondsSinceEpoch}';
-      storage.write('device_id', deviceId);
+    await FirebaseMessaging.instance.requestPermission();
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+    if (fcmToken == null || fcmToken.isEmpty) {
+      print('[Admin] FCM token null, onTokenRefresh dinleniyor');
+      FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
+        print('[Admin] onTokenRefresh: $token');
+        try {
+          await AdminApiService().registerAdminDevice(token);
+        } catch (e) {
+          print('[Admin] onTokenRefresh registration failed: $e');
+        }
+      });
+      return;
     }
-
-    // Also get FCM token and include it
-    String? fcmToken;
-    try {
-      fcmToken = await FirebaseMessaging.instance.getToken();
-    } catch (_) {}
-
-    print('[Admin] Registering device: $deviceId, fcmToken: $fcmToken');
-    await AdminApiService().registerAdminDevice(deviceId, fcmToken: fcmToken);
+    print('[Admin] FCM token: $fcmToken');
+    await AdminApiService().registerAdminDeviwce(fcmToken);
     print('[Admin] Device registered successfully');
   } catch (e) {
     print('[Admin] Device registration failed (non-fatal): $e');

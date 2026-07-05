@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:atlas/admin/admin_api_service.dart';
 import 'package:atlas/admin/admin_login_screen.dart';
+import 'package:atlas/admin/admin_order_detail_screen.dart';
 import 'package:atlas/admin/admin_order_model.dart';
 import 'package:atlas/utils/price_format.dart';
 
@@ -266,7 +267,11 @@ class _AdminOrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _statusColor;
 
-    return Container(
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => AdminOrderDetailScreen(order: order)),
+      ),
+      child: Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -383,6 +388,7 @@ class _AdminOrderCard extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

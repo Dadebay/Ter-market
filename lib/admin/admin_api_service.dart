@@ -56,18 +56,22 @@ class AdminApiService {
   // POST /v2/login/ with username, password (multipart) → {access, refresh}
   Future<void> login(String username, String password) async {
     try {
+      print('\x1B[36m[AdminApi] 📤 POST v2/login/ | user=$username\x1B[0m');
       final response = await _dio.post(
         'v2/login/',
         data: FormData.fromMap({'username': username, 'password': password}),
       );
+      print('\x1B[32m[AdminApi] ✅ login response status=${response.statusCode} | keys=${response.data?.keys?.toList()}\x1B[0m');
       final data = response.data;
       final access = data['access'] as String?;
       final refresh = data['refresh'] as String?;
       if (access == null || refresh == null) {
+        print('\x1B[31m[AdminApi] ❌ access veya refresh token null | data=$data\x1B[0m');
         throw AdminAuthException('Ulanyjy ady ýa-da parol nädogry');
       }
       await _saveTokens(access: access, refresh: refresh);
     } on DioException catch (e) {
+      print('\x1B[31m[AdminApi] ❌ DioException login | status=${e.response?.statusCode} | data=${e.response?.data} | message=${e.message}\x1B[0m');
       if (e.response?.statusCode == 401 || e.response?.statusCode == 400) {
         throw AdminAuthException('Ulanyjy ady ýa-da parol nädogry');
       }
@@ -93,20 +97,37 @@ class AdminApiService {
     return newAccess;
   }
 
-  // POST /api/foradmin/ with device_id (and optional fcm_token)
-  Future<void> registerAdminDevice(String deviceId, {String? fcmToken}) async {
+  // POST /api/foradmin/ with fcm_token
+  Future<void> registerAdminDevice(String fcmToken) async {
     try {
-      final fields = <String, dynamic>{'device_id': deviceId};
-      if (fcmToken != null && fcmToken.isNotEmpty) {
-        fields['fcm_token'] = fcmToken;
-      }
       await _dio.post(
         'api/foradmin/',
-        data: FormData.fromMap(fields),
+        data: FormData.fromMap({'device_id': fcmToken}),
       );
-      print('[AdminApi] registerAdminDevice success: $deviceId');
+      print('[AdminApi] registerAdminDevice success');
     } catch (e) {
       print('[AdminApi] registerAdminDevice error: $e');
+      rethrow;
+    }
+  }
+
+  // GET /v2/orderitems/?order_id=<id>
+  Future<List<Map<String, dynamic>>> getOrderItems(int orderId) async {
+    try {
+      final response = await _dio.get(
+        'v2/orderitems/',
+        queryParameters: {'order_id': orderId},
+      );
+      final data = response.data;
+      if (data is List) {
+        return List<Map<String, dynamic>>.from(data);
+      }
+      if (data is Map && data.containsKey('results')) {
+        return List<Map<String, dynamic>>.from(data['results'] as List);
+      }
+      return [];
+    } catch (e) {
+      print('[AdminApi] getOrderItems error: $e');
       rethrow;
     }
   }
@@ -114,20 +135,29 @@ class AdminApiService {
   // GET /v2/orders/
   Future<List<Map<String, dynamic>>> getAllOrders({int page = 1}) async {
     try {
+      print('\x1B[36m[AdminApi] 📤 GET v2/orders/?page=$page | token=${accessToken?.substring(0, 20)}...\x1B[0m');
       final response = await _dio.get(
         'v2/orders/',
         queryParameters: {'page': page},
       );
+      print('\x1B[32m[AdminApi] ✅ GET v2/orders/?page=$page | status=${response.statusCode} | type=${response.data.runtimeType}\x1B[0m');
       final data = response.data;
-      if (data is Map && data.containsKey('results')) {
-        return List<Map<String, dynamic>>.from(data['results'] as List);
+      if (data is Map) {
+        print('\x1B[33m[AdminApi] 📦 response keys: ${data.keys.toList()}\x1B[0m');
+        if (data.containsKey('results')) {
+          final results = List<Map<String, dynamic>>.from(data['results'] as List);
+          print('\x1B[32m[AdminApi] ✅ results count: ${results.length}\x1B[0m');
+          return results;
+        }
       }
       if (data is List) {
+        print('\x1B[32m[AdminApi] ✅ list count: ${data.length}\x1B[0m');
         return List<Map<String, dynamic>>.from(data);
       }
+      print('\x1B[31m[AdminApi] ⚠️ unexpected response format: $data\x1B[0m');
       return [];
     } catch (e) {
-      print('[AdminApi] getAllOrders error: $e');
+      print('\x1B[31m[AdminApi] ❌ getAllOrders error: $e\x1B[0m');
       rethrow;
     }
   }

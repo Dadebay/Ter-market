@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:atlas/admin/admin_api_service.dart';
 import 'package:atlas/admin/admin_orders_screen.dart';
 
@@ -47,14 +46,18 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     });
 
     try {
+      print('\x1B[36m[AdminLogin] 🔐 login başlıyor | user=$username\x1B[0m');
       await _api.login(username, password);
+      print('\x1B[32m[AdminLogin] ✅ login başarılı\x1B[0m');
       await _registerDevice();
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const AdminOrdersScreen()),
         (route) => false,
       );
-    } catch (e) {
+    } catch (e, st) {
+      print('\x1B[31m[AdminLogin] ❌ login hatası: $e\x1B[0m');
+      print('\x1B[31m[AdminLogin] stacktrace: $st\x1B[0m');
       setState(() => _error = e.toString().replaceFirst('AdminAuthException: ', ''));
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -63,20 +66,20 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
   Future<void> _registerDevice() async {
     try {
-      final storage = GetStorage();
-      var deviceId = storage.read<String>('device_id');
-      if (deviceId == null || deviceId.isEmpty) {
-        deviceId = 'atlas-admin-${DateTime.now().millisecondsSinceEpoch}';
-        storage.write('device_id', deviceId);
+      print('\x1B[36m[AdminLogin] 📲 FCM permission isteniyor...\x1B[0m');
+      final settings = await FirebaseMessaging.instance.requestPermission();
+      print('\x1B[33m[AdminLogin] 🔔 permission status: ${settings.authorizationStatus}\x1B[0m');
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      print('\x1B[33m[AdminLogin] 🪙 FCM token: $fcmToken\x1B[0m');
+      if (fcmToken == null || fcmToken.isEmpty) {
+        print('\x1B[31m[AdminLogin] ⚠️ FCM token null, skip registration\x1B[0m');
+        return;
       }
-      String? fcmToken;
-      try {
-        fcmToken = await FirebaseMessaging.instance.getToken();
-      } catch (_) {}
-      await _api.registerAdminDevice(deviceId, fcmToken: fcmToken);
-    } catch (e) {
-      // Non-fatal: login already succeeded, device registration can be retried later.
-      print('[AdminLogin] device registration failed: $e');
+      await _api.registerAdminDevice(fcmToken);
+      print('\x1B[32m[AdminLogin] ✅ device registered\x1B[0m');
+    } catch (e, st) {
+      print('\x1B[31m[AdminLogin] ❌ device registration failed: $e\x1B[0m');
+      print('\x1B[31m[AdminLogin] stacktrace: $st\x1B[0m');
     }
   }
 

@@ -61,14 +61,6 @@ class _ProductCardState extends State<ProductCard> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        print('┌─── ProductCard tapped ────────────────────────');
-        print('│ id:       ${widget.id}');
-        print('│ title:    ${widget.title}');
-        print('│ price:    ${widget.price}');
-        print('│ oldPrice: ${widget.oldPrice}');
-        print('│ discount: ${widget.discount}');
-        print('│ imageUrl: ${widget.imageUrl}');
-        print('└───────────────────────────────────────────────');
         widget.onTap();
       },
       child: Container(

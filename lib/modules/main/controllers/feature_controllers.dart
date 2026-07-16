@@ -124,19 +124,15 @@ class FavoritesController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    print('[Favourites] Controller initialized - device_id: $_deviceId');
     fetchFavourites();
   }
 
   Future<void> fetchFavourites() async {
     isLoading.value = true;
     try {
-      print('[Favourites] Loading with device_id: $_deviceId');
       final products = await _api.getFavourites(_deviceId);
       favoriteItems.value = products.map(_toMap).toList();
-      print('[Favourites] Loaded ${favoriteItems.length} items');
     } catch (e) {
-      print('[Favourites] Load failed: $e');
       // Clear on error to show empty state
       favoriteItems.value = [];
     } finally {
@@ -156,51 +152,37 @@ class FavoritesController extends GetxController {
   }
 
   Future<void> toggleFavorite(Map<String, dynamic> item) async {
-    print('[Favourites] toggleFavorite called with item: $item');
     final rawId = item['id'];
     final productId = _toIntId(rawId);
-    print('[Favourites] rawId: $rawId, parsed productId: $productId');
     final existing = productId != null ? favoriteItems.indexWhere((e) => _toIntId(e['id']) == productId) : favoriteItems.indexWhere((e) => e['title'] == item['title']);
-    print('[Favourites] existing index: $existing, favoriteItems.length: ${favoriteItems.length}');
 
     if (existing != -1) {
       // Optimistic remove
-      print('[Favourites] Removing item at index $existing');
       final removed = favoriteItems[existing];
       favoriteItems.removeAt(existing);
       AppDialogs.showRemovedFromFavorites();
       if (productId != null) {
         try {
-          print('[Favourites] API call: removeFavourite(deviceId: $_deviceId, productId: $productId)');
           await _api.removeFavourite(_deviceId, productId);
-          print('[Favourites] Successfully removed from backend');
         } catch (e) {
           // Roll back on failure
           favoriteItems.insert(existing, removed);
           if (e is DioException) {
-            print('[Favourites] Remove failed: ${e.response?.statusCode} ${e.response?.data}');
           } else {
-            print('[Favourites] Remove failed: $e');
           }
         }
       }
     } else {
       // Optimistic add
-      print('[Favourites] Adding new item to favorites');
       favoriteItems.add(item);
-      print('[Favourites] favoriteItems.length after add: ${favoriteItems.length}');
       if (productId != null) {
         try {
-          print('[Favourites] API call: addFavourite(deviceId: $_deviceId, productId: $productId)');
           await _api.addFavourite(_deviceId, productId);
-          print('[Favourites] Successfully added to backend');
         } catch (e) {
           // Roll back on failure
           favoriteItems.removeWhere((e) => _toIntId(e['id']) == productId);
           if (e is DioException) {
-            print('[Favourites] Add failed: ${e.response?.statusCode} ${e.response?.data}');
           } else {
-            print('[Favourites] Add failed: $e');
           }
         }
       }

@@ -38,14 +38,11 @@ void main() async {
 
 void _setupFcmTokenListener() {
   FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-    print('[FCM] Token refresh detected: $newToken');
     try {
       final storage = Get.find<GetStorage>();
       await ApiService().registerFcmToken(newToken);
       storage.write('fcm_token', newToken);
-      print('[FCM] Token registered successfully via global listener');
     } catch (e) {
-      print('[FCM] Failed to register token via global listener: $e');
     }
   });
 }

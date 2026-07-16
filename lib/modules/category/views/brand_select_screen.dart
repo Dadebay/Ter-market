@@ -66,21 +66,13 @@ class _BrandSelectScreenState extends State<BrandSelectScreen> {
       _hasError = false;
     });
     try {
-      print('┌─── BRAND SELECT SCREEN: _fetchBrands ───────');
       final result = await _api.getBrands();
-      print('│ Total brands received: ${result.length}');
-      for (final b in result) {
-        print('│ Brand: id=${b.id}, name=${b.localizedName}, icon=${b.icon}');
-      }
-      print('└──────────────────────────────────────────────');
       if (!mounted) return;
       setState(() {
         _brands = result;
         _filtered = result;
       });
     } catch (e) {
-      print('│ ERROR: $e');
-      print('└──────────────────────────────────────────────');
       if (!mounted) return;
       setState(() => _hasError = true);
     } finally {
@@ -232,7 +224,6 @@ class _BrandSelectScreenState extends State<BrandSelectScreen> {
 
   Widget _buildBrandCard(BrandModel brand) {
     final isSelected = _selectedId == brand.id;
-    print(ApiClient.imgUrl + brand.icon!);
     return GestureDetector(
       onTap: () => Navigator.of(context).pop(<String, dynamic>{
         'id': brand.id,

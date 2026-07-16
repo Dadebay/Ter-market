@@ -19,16 +19,8 @@ class BannerController extends GetxController {
     isLoading.value = true;
     hasError.value = false;
     try {
-      print('[BannerController] fetching banners...');
-      final result = await _api.getBanners();
-      print('[BannerController] got ${result.length} banners');
-      for (final b in result) {
-        print('[BannerController] banner => title:${b.title} image:${b.image}');
-      }
-      banners.value = result;
-    } catch (e, st) {
-      print('[BannerController] ERROR: $e');
-      print('[BannerController] STACK: $st');
+      banners.value = await _api.getBanners();
+    } catch (_) {
       hasError.value = true;
     } finally {
       isLoading.value = false;

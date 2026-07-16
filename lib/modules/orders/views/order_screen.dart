@@ -13,6 +13,7 @@ import 'package:atlas/modules/orders/views/my_orders_screen.dart';
 import 'package:atlas/modules/orders/views/payment_webview_screen.dart';
 import 'package:atlas/modules/profile/controllers/language_controller.dart';
 import 'package:atlas/utils/price_format.dart';
+import 'package:atlas/utils/order_log.dart';
 import 'package:atlas/models/order_model.dart';
 import 'package:atlas/widgets/app_dialogs.dart';
 import 'package:atlas/widgets/app_loading_state.dart';
@@ -321,6 +322,7 @@ class _OrderScreenState extends State<OrderScreen> {
       final base = _isDeliveryTomorrow ? DateTime.now().add(const Duration(days: 1)) : DateTime.now();
       deliveryDate = '${base.year.toString().padLeft(4, '0')}-${base.month.toString().padLeft(2, '0')}-${base.day.toString().padLeft(2, '0')}';
     }
+    OrderLog.step('_submit() → sending order (online=$_isOnlinePayment)');
     final success = await _orderCtrl.placeOrder(
       phoneNumber: _phoneCtrl.text.trim(),
       address: _addressCtrl.text.trim(),
@@ -332,19 +334,11 @@ class _OrderScreenState extends State<OrderScreen> {
       regionId: _selectedRegion?.id,
       cartItems: widget.cartItems,
     );
+    OrderLog.step('_submit() → placeOrder returned success=$success');
     if (success) {
       final orderId = _orderCtrl.orders.isNotEmpty ? _orderCtrl.orders.first.id : null;
       if (_isOnlinePayment && orderId != null) {
-        // ignore: avoid_print
-        print('\x1B[35m┌─── ONLINE PAYMENT FLOW ───────────────────────\x1B[0m');
-        // ignore: avoid_print
-        print('\x1B[35m│ orderId  : $orderId\x1B[0m');
-        // ignore: avoid_print
-        print('\x1B[35m│ bank     : ${_orderCtrl.selectedBank.value?.nameKey}\x1B[0m');
-        // ignore: avoid_print
-        print('\x1B[35m│ step 1   : clearing cart & closing order screen\x1B[0m');
-        // ignore: avoid_print
-        print('\x1B[35m└───────────────────────────────────────────────\x1B[0m');
+        OrderLog.step('online payment flow — orderId=$orderId bank=${_orderCtrl.selectedBank.value?.nameKey}');
         _cartCtrl.clearCart();
         if (mounted) Navigator.of(context).pop();
         AppDialogs.showTopSuccessSnackbar(
@@ -353,35 +347,15 @@ class _OrderScreenState extends State<OrderScreen> {
           icon: HugeIcons.strokeRoundedShoppingBag01,
         );
         // Step 2: show loading while fetching payment URL from server
-        // ignore: avoid_print
-        print('\x1B[35m┌─── ONLINE PAYMENT LOADING ────────────────────\x1B[0m');
-        // ignore: avoid_print
-        print('\x1B[35m│ step 2   : fetching payment URL (loading dialog)\x1B[0m');
-        // ignore: avoid_print
-        print('\x1B[35m└───────────────────────────────────────────────\x1B[0m');
         Get.dialog(const _PaymentLoadingDialog(), barrierDismissible: false);
         final paymentUrl = await _orderCtrl.fetchPaymentUrl(orderId);
         if (Get.isDialogOpen ?? false) Get.back();
 
         if (paymentUrl != null && paymentUrl.isNotEmpty) {
-          // ignore: avoid_print
-          print('\x1B[35m┌─── ONLINE PAYMENT WEBVIEW OPEN ───────────────\x1B[0m');
-          // ignore: avoid_print
-          print('\x1B[35m│ step 3   : opening PaymentWebViewScreen\x1B[0m');
-          // ignore: avoid_print
-          print('\x1B[35m│ url      : $paymentUrl\x1B[0m');
-          // ignore: avoid_print
-          print('\x1B[35m│ strategy : intercept activate-order URL → auto close\x1B[0m');
-          // ignore: avoid_print
-          print('\x1B[35m└───────────────────────────────────────────────\x1B[0m');
+          OrderLog.info('opening payment webview url=$paymentUrl');
           await Get.to(() => PaymentWebViewScreen(url: paymentUrl));
-          // ignore: avoid_print
-          print('\x1B[35m┌─── PAYMENT WEBVIEW CLOSED ────────────────────\x1B[0m');
-          // ignore: avoid_print
-          print('\x1B[35m│ step 4   : WebView closed → going to MyOrdersScreen\x1B[0m');
-          // ignore: avoid_print
-          print('\x1B[35m└───────────────────────────────────────────────\x1B[0m');
         } else {
+          OrderLog.error('payment url was null/empty for orderId=$orderId');
           Get.snackbar('error'.tr, 'payment_url_error'.tr,
               backgroundColor: const Color(0xFFFFEBEE),
               colorText: const Color(0xFFD32F2F),
@@ -392,16 +366,7 @@ class _OrderScreenState extends State<OrderScreen> {
         await Future.delayed(const Duration(milliseconds: 200));
         Get.to(() => const MyOrdersScreen(), preventDuplicates: true);
       } else {
-        // ignore: avoid_print
-        print('\x1B[32m┌─── CASH/TERMINAL PAYMENT FLOW ────────────────\x1B[0m');
-        // ignore: avoid_print
-        print('\x1B[32m│ orderId  : $orderId\x1B[0m');
-        // ignore: avoid_print
-        print('\x1B[32m│ payment  : ${_selectedPayment?.nameTk}\x1B[0m');
-        // ignore: avoid_print
-        print('\x1B[32m│ clearing cart immediately\x1B[0m');
-        // ignore: avoid_print
-        print('\x1B[32m└───────────────────────────────────────────────\x1B[0m');
+        OrderLog.step('cash/terminal flow — orderId=$orderId payment=${_selectedPayment?.nameTk}');
         _cartCtrl.clearCart();
         if (mounted) Navigator.of(context).pop();
         AppDialogs.showTopSuccessSnackbar(
@@ -411,6 +376,7 @@ class _OrderScreenState extends State<OrderScreen> {
         );
       }
     } else {
+      OrderLog.error('_submit() → order FAILED, showing error snackbar to customer');
       Get.snackbar(
         'error'.tr,
         'failed_to_create_order'.tr,

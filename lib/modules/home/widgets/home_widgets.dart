@@ -3,6 +3,7 @@ import 'package:atlas/modules/home/views/banner_detail_screen.dart';
 import 'package:atlas/modules/category/views/category_detail_screen.dart';
 import 'package:atlas/themes/colors.dart';
 import 'package:atlas/utils/nav.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -96,16 +97,17 @@ class _BannerCarouselState extends State<BannerCarousel> {
     if (isUrl) {
       final uri = Uri.parse(body);
       launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else if (body.isNotEmpty) {
-      Nav.push(
-        context,
-        () => BannerDetailScreen(
-          title: banner.title ?? '',
-          imageUrl: banner.image,
-          body: body,
-        ),
-      );
     }
+    // else if (body.isNotEmpty) {
+    //   Nav.push(
+    //     context,
+    //     () => BannerDetailScreen(
+    //       title: banner.title ?? '',
+    //       imageUrl: banner.image,
+    //       body: body,
+    //     ),
+    //   );
+    // }
   }
 
   @override
@@ -130,9 +132,8 @@ class _BannerCarouselState extends State<BannerCarousel> {
       final banners = controller.banners;
       _initCarousel(banners.length);
 
-      return Container(
-        height: 220,
-        margin: EdgeInsets.only(bottom: 10, top: 10),
+      return SizedBox(
+        height: 240,
         child: PageView.builder(
           controller: _pageController,
           itemCount: _multiplier * banners.length,
@@ -144,24 +145,34 @@ class _BannerCarouselState extends State<BannerCarousel> {
             return GestureDetector(
               onTap: () => _handleBannerTap(banner),
               child: Container(
-                margin: const EdgeInsets.all(10),
+                width: double.infinity,
+                height: 240,
+                margin: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
+                      color: Colors.black.withOpacity(0.12),
+                      blurRadius: 16,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: AppNetworkImage(
-                    url: banner.image,
+                  borderRadius: BorderRadius.circular(10),
+                  child: CachedNetworkImage(
+                    imageUrl: banner.image,
                     width: double.infinity,
-                    height: 160,
-                    fit: BoxFit.fill,
+                    height: 240,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(color: const Color(0xFFF0F0F0)),
+                    errorWidget: (context, url, error) => Container(
+                      color: const Color(0xFFF0F0F0),
+                      child: const Center(
+                        child: Icon(Icons.broken_image_outlined, color: Colors.grey),
+                      ),
+                    ),
                   ),
                 ),
               ),

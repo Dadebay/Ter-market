@@ -27,7 +27,6 @@ class BannerModel {
       try {
         productsList = (json['products'] as List).map((p) => ProductModel.fromJson(p as Map<String, dynamic>)).toList();
       } catch (e) {
-        print('[BannerModel] Error parsing products: $e');
       }
     }
 

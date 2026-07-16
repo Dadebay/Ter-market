@@ -313,7 +313,6 @@ class ContactPage extends StatelessWidget {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
-      print('Error launching URL: $e');
     }
   }
 }

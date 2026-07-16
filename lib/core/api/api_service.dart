@@ -5,6 +5,7 @@ import 'package:atlas/models/brand_model.dart';
 import 'package:atlas/models/category_model.dart';
 import 'package:atlas/models/product_model.dart';
 import 'package:atlas/models/order_model.dart';
+import 'package:atlas/utils/order_log.dart';
 
 class ApiService {
   final Dio _dio = ApiClient.instance;
@@ -12,9 +13,7 @@ class ApiService {
   // ─── Banners ────────────────────────────────────────────────────────────────
   Future<List<BannerModel>> getBanners() async {
     final response = await _dio.get('banners/');
-    print('[ApiService] getBanners raw: ${response.data}');
     final list = _extractList(response.data);
-    print('[ApiService] getBanners list length: ${list.length}');
     return list.map((e) => BannerModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -28,11 +27,6 @@ class ApiService {
   Future<List<BrandModel>> getBrands() async {
     final response = await _dio.get('brends/');
     final list = _extractList(response.data);
-    print('[API] getBrands list length: ${list.length}');
-    for (int i = 0; i < list.length; i++) {
-      final item = list[i] as Map<String, dynamic>;
-      print('[API] Brand[$i] RAW JSON: $item');
-    }
     return list.map((e) => BrandModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -120,31 +114,17 @@ class ApiService {
 
   // ─── Favourites ─────────────────────────────────────────────────────────────
   Future<void> addFavourite(String deviceId, int productId) async {
-    print('[API] addFavourite - deviceId: $deviceId, productId: $productId');
-    try {
-      final response = await _dio.post(
-        'addFavourites/',
-        data: FormData.fromMap({'device_id': deviceId, 'product_id': productId}),
-      );
-      print('[API] addFavourite SUCCESS - status: ${response.statusCode}, data: ${response.data}');
-    } catch (e) {
-      print('[API] addFavourite FAILED - error: $e');
-      rethrow;
-    }
+    await _dio.post(
+      'addFavourites/',
+      data: FormData.fromMap({'device_id': deviceId, 'product_id': productId}),
+    );
   }
 
   Future<void> removeFavourite(String deviceId, int productId) async {
-    print('[API] removeFavourite - deviceId: $deviceId, productId: $productId');
-    try {
-      final response = await _dio.delete(
-        'removeFavourites/',
-        data: FormData.fromMap({'device_id': deviceId, 'product_id': productId}),
-      );
-      print('[API] removeFavourite SUCCESS - status: ${response.statusCode}, data: ${response.data}');
-    } catch (e) {
-      print('[API] removeFavourite FAILED - error: $e');
-      rethrow;
-    }
+    await _dio.delete(
+      'removeFavourites/',
+      data: FormData.fromMap({'device_id': deviceId, 'product_id': productId}),
+    );
   }
 
   /// Returns a list of ProductModel. Handles three backend response formats:
@@ -152,16 +132,12 @@ class ApiService {
   ///  2. Nested with product object: [{product: {id: 123, name_tk: "...", ...}}]
   ///  3. Nested with product ID: [{product: 123}]
   Future<List<ProductModel>> getFavourites(String deviceId) async {
-    print('[API] getFavourites - deviceId: $deviceId');
     try {
       final response = await _dio.get(
         'getFavourites/',
         queryParameters: {'device_id': deviceId},
       );
-      print('[API] getFavourites response - status: ${response.statusCode}');
-      print('[API] getFavourites response data: ${response.data}');
       final list = _extractList(response.data);
-      print('[API] getFavourites - found ${list.length} items');
       final products = <ProductModel>[];
 
       for (final item in list) {
@@ -170,41 +146,30 @@ class ApiService {
         // Check if 'product' field exists
         if (itemMap.containsKey('product')) {
           final raw = itemMap['product'];
-          print('[API] Processing favourite with product field - type: ${raw.runtimeType}, value: $raw');
 
           if (raw is Map<String, dynamic>) {
             // Format 2: Backend returns full product in 'product' field
             products.add(ProductModel.fromJson(raw));
-            print('[API] Added product from nested object: ${raw['id']}');
           } else if (raw is int) {
             // Format 3: Backend returns only product ID
             try {
-              print('[API] Fetching product details for ID: $raw');
               final product = await getProductById(raw);
               products.add(product);
-              print('[API] Added product from ID: ${product.id}');
             } catch (e) {
-              print('[API] Failed to fetch product $raw: $e');
             }
           }
         } else if (itemMap.containsKey('id') && itemMap.containsKey('name_tk')) {
           // Format 1: Backend returns product directly (no 'product' wrapper)
-          print('[API] Processing direct product object - id: ${itemMap['id']}');
           try {
             products.add(ProductModel.fromJson(itemMap));
-            print('[API] Added direct product: ${itemMap['id']}');
           } catch (e) {
-            print('[API] Failed to parse direct product: $e');
           }
         } else {
-          print('[API] Unknown favourite format, skipping item: $itemMap');
         }
       }
 
-      print('[API] getFavourites - returning ${products.length} products');
       return products;
     } catch (e) {
-      print('[API] getFavourites FAILED - error: $e');
       rethrow;
     }
   }
@@ -250,33 +215,12 @@ class ApiService {
   }
 
   Future<List<OrderModel>> getMyOrders(String deviceId) async {
-    print('┌─── GET MY ORDERS ─────────────────────────────');
-    print('│ device_id: "$deviceId"');
-    try {
-      final response = await _dio.get(
-        'orders/',
-        queryParameters: {'device_id': deviceId},
-      );
-      print('│ status: ${response.statusCode}');
-      print('│ raw response: ${response.data}');
-      final list = _extractList(response.data);
-      print('│ extracted list length: ${list.length}');
-      if (list.isNotEmpty) {
-        print('│ first item: ${list.first}');
-      }
-      final orders = list.map((e) => OrderModel.fromJson(e as Map<String, dynamic>)).toList();
-      print('│ parsed orders: ${orders.length}');
-      for (final o in orders) {
-        print('│   → id:${o.id} status:"${o.status}" orderStatus:"${o.orderStatus}" deviceId:"${o.deviceId}"');
-      }
-      print('└───────────────────────────────────────────────');
-      return orders;
-    } catch (e, st) {
-      print('│ ERROR: $e');
-      print('│ STACK: $st');
-      print('└───────────────────────────────────────────────');
-      rethrow;
-    }
+    final response = await _dio.get(
+      'orders/',
+      queryParameters: {'device_id': deviceId},
+    );
+    final list = _extractList(response.data);
+    return list.map((e) => OrderModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<String?> initiateOnlinePayment({required int orderId, required int bankId}) async {
@@ -292,45 +236,36 @@ class ApiService {
   }
 
   Future<void> cancelOrder(int orderId, String deviceId) async {
-    const baseUrl = 'https://termarket.com.tm/api/';
-    final path = 'orders/$orderId/';
-    final body = {'order_status': 'cancelled'};
-    print('┌─── CANCEL ORDER REQUEST ───────────────────────');
-    print('│ URL    : $baseUrl$path');
-    print('│ METHOD : PATCH');
-    print('│ BODY   : $body');
-    print('└───────────────────────────────────────────────');
-    try {
-      final response = await _dio.patch(path, data: body);
-      print('┌─── CANCEL ORDER RESPONSE ──────────────────────');
-      print('│ status : ${response.statusCode}');
-      print('│ data   : ${response.data}');
-      print('└───────────────────────────────────────────────');
-    } on DioException catch (e) {
-      print('┌─── CANCEL ORDER ERROR ─────────────────────────');
-      print('│ type      : ${e.type}');
-      print('│ status    : ${e.response?.statusCode}');
-      print('│ response  : ${e.response?.data}');
-      print('│ message   : ${e.message}');
-      print('│ req path  : ${e.requestOptions.path}');
-      print('│ req body  : ${e.requestOptions.data}');
-      print('└───────────────────────────────────────────────');
-      rethrow;
-    }
+    await _dio.patch('orders/$orderId/', data: {'order_status': 'cancelled'});
   }
 
   Future<OrderModel> createOrder(CreateOrderRequest request) async {
     final body = request.toJson();
-    print('┌─── CREATE ORDER REQUEST ──────────────────────');
-    print('│ POST orders/');
-    print('│ Body: $body');
-    print('└───────────────────────────────────────────────');
-    final response = await _dio.post('orders/', data: body);
-    print('┌─── CREATE ORDER RESPONSE ─────────────────────');
-    print('│ Status: ${response.statusCode}');
-    print('│ Body:   ${response.data}');
-    print('└───────────────────────────────────────────────');
-    return OrderModel.fromJson(response.data as Map<String, dynamic>);
+    OrderLog.request('POST orders/  body=$body');
+    final Response response;
+    try {
+      response = await _dio.post('orders/', data: body);
+    } on DioException catch (e) {
+      // Network / server side failure (timeout, 4xx, 5xx, connection).
+      OrderLog.error('POST orders/ DioException type=${e.type} '
+          'status=${e.response?.statusCode} '
+          'data=${e.response?.data} message=${e.message}');
+      rethrow;
+    }
+    OrderLog.response('POST orders/ status=${response.statusCode} '
+        'data=${response.data}');
+    try {
+      final order = OrderModel.fromJson(response.data as Map<String, dynamic>);
+      OrderLog.success('parsed order id=${order.id} number=${order.orderNumber}');
+      return order;
+    } catch (e, st) {
+      // Server returned 2xx but the body could not be parsed — this is the
+      // kind of intermittent failure that never shows up in Postman.
+      OrderLog.error('OrderModel.fromJson FAILED on 2xx response: $e');
+      OrderLog.error('raw body was: ${response.data}');
+      OrderLog.error('stack: $st');
+      rethrow;
+    }
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────

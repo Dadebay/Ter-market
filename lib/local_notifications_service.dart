@@ -52,7 +52,6 @@ class LocalNotificationsService {
     await _flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        print('Foreground notification has been tapped: ${response.payload}');
       },
     );
     final androidImpl = _flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
@@ -108,7 +107,6 @@ class LocalNotificationsService {
 
     // If deadline is already in the past, skip entirely
     if (deadlineDay.isBefore(today)) {
-      print('⚠️ Deadline for order $orderId is in the past, no notifications scheduled');
       return;
     }
 
@@ -133,7 +131,6 @@ class LocalNotificationsService {
         NotificationDetails(android: androidDetails, iOS: iosDetails),
         payload: 'order_$orderId',
       );
-      print('🔔 Fired immediate notification for order $orderId ($daysUntilDeadline days until deadline)');
     }
 
     // Schedule future 9 AM reminders for days that haven't passed yet
@@ -167,7 +164,6 @@ class LocalNotificationsService {
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         payload: 'order_$orderId',
       );
-      print('⏰ Scheduled notification id=$notifId for order $orderId ($daysBefore days before deadline on ${scheduledDate.toIso8601String()})');
     }
   }
 
@@ -209,7 +205,6 @@ class LocalNotificationsService {
       final notifId = orderId * 10 + daysBefore;
       await _flutterLocalNotificationsPlugin.cancel(notifId);
     }
-    print('🗑️ Cancelled deadline notifications for order $orderId');
   }
 
   /// Returns a timezone name that matches the given UTC offset in minutes.

@@ -22,7 +22,6 @@ class HomeController extends GetxController {
         contactList.value = (response.data as List).map((item) => ContactModel.fromJson(item)).toList();
       }
     } catch (e) {
-      print('Error fetching contact info: $e');
     } finally {
       isLoadingContact.value = false;
     }

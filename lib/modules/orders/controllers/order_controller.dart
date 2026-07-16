@@ -7,6 +7,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:atlas/core/api/api_service.dart';
 import 'package:atlas/models/order_model.dart';
+import 'package:atlas/utils/order_log.dart';
 
 class OrderController extends GetxController {
   final _api = ApiService();
@@ -136,6 +137,12 @@ class OrderController extends GetxController {
     required List<Map<String, dynamic>> cartItems,
   }) async {
     isPlacingOrder.value = true;
+    OrderLog.step('placeOrder() called');
+    OrderLog.info('deviceId=$deviceId phone=$phoneNumber address="$address"');
+    OrderLog.info('payment=$paymentStatus deliveryTypeId=$deliveryTypeId '
+        'deliveryTimeId=$deliveryTimeId regionId=$regionId '
+        'isExpress=$isExpress deliveryDate=$deliveryDate');
+    OrderLog.info('cartItems=${cartItems.map((e) => "id=${e['id']} qty=${e['quantity']}").join(", ")}');
     try {
       final request = CreateOrderRequest(
         deviceId: deviceId,
@@ -149,64 +156,31 @@ class OrderController extends GetxController {
         deliveryDate: deliveryDate,
         items: cartItems.map((item) {
           final productId = item['id'];
+          final parsedId = productId is int ? productId : int.tryParse(productId.toString()) ?? 0;
+          if (parsedId == 0) {
+            OrderLog.warn('cart item has invalid/zero product id: raw="$productId" item=$item');
+          }
           return OrderItemRequest(
-            product: productId is int ? productId : int.tryParse(productId.toString()) ?? 0,
+            product: parsedId,
             quantity: item['quantity'] as int? ?? 1,
           );
         }).toList(),
       );
-      print('┌─── PLACE ORDER REQUEST ────────────────────────');
-      print('│ deviceId       : $deviceId');
-      print('│ phoneNumber    : $phoneNumber');
-      print('│ address        : $address');
-      print('│ paymentStatus  : $paymentStatus');
-      print('│ deliveryTypeId : $deliveryTypeId');
-      print('│ deliveryTimeId : $deliveryTimeId  <-- null = express');
-      print('│ regionId       : $regionId');
-      print('│ isExpress      : $isExpress');
-      print('│ deliveryDate   : $deliveryDate');
-      print('│ items          : ${cartItems.map((e) => "id=${e['id']} qty=${e['quantity']}").join(", ")}');
-      print('│ request toJson : ${request.toJson()}');
-      print('└────────────────────────────────────────────────');
 
       final order = await _api.createOrder(request);
-      final itemsTotal = order.items.fold(0.0, (s, i) => s + i.cost);
-      final deliveryFee = isExpress ? (order.regionDetail?.exPrice ?? 0.0) : (order.regionDetail?.price ?? 0.0);
-      final calculatedTotal = itemsTotal + deliveryFee;
-      print('┌─── PLACE ORDER RESPONSE ───────────────────────');
-      print('│ order id            : ${order.id}');
-      print('│ order orderNumber   : ${order.orderNumber}');
-      print('│ order is_express    : ${order.isExpress}');
-      print('│ order isExpressDelivery (inferred): ${order.isExpressDelivery}');
-      print('│ order deliveryType  : ${order.deliveryTypeDetail?.titleTk}');
-      print('│ order deliveryTime  : ${order.deliveryTimeDetail?.displayTime}');
-      print('│ order region        : ${order.regionDetail?.name}');
-      print('│ order region.price  : ${order.regionDetail?.price}');
-      print('│ order region.exPrice: ${order.regionDetail?.exPrice}');
-      print('│ order status        : ${order.orderStatus}');
-      print('│ --- TOTALS ---');
-      print('│ backend total_price : ${order.totalPrice}');
-      print('│ items cost sum      : $itemsTotal');
-      print('│ delivery fee used   : $deliveryFee  (isExpress=$isExpress)');
-      print('│ calculated total    : $calculatedTotal');
-      print('│ displayTotal getter : ${order.displayTotal}');
-      print('└────────────────────────────────────────────────');
       orders.insert(0, order);
+      OrderLog.success('placeOrder OK — order id=${order.id} number=${order.orderNumber}');
       return true;
+    } on DioException catch (e, st) {
+      OrderLog.error('placeOrder DioException type=${e.type} '
+          'status=${e.response?.statusCode} data=${e.response?.data} '
+          'message=${e.message}');
+      OrderLog.error('request path=${e.requestOptions.path} body=${e.requestOptions.data}');
+      OrderLog.error('stack: $st');
+      return false;
     } catch (e, st) {
-      print('┌─── CREATE ORDER ERROR ────────────────────────');
-      print('│ type: ${e.runtimeType}');
-      print('│ error: $e');
-      if (e is DioException) {
-        print('│ DioException type: ${e.type}');
-        print('│ status: ${e.response?.statusCode}');
-        print('│ response data: ${e.response?.data}');
-        print('│ request path: ${e.requestOptions.path}');
-        print('│ request body: ${e.requestOptions.data}');
-        print('│ message: ${e.message}');
-      }
-      print('│ stackTrace: $st');
-      print('└───────────────────────────────────────────────');
+      OrderLog.error('placeOrder unexpected ${e.runtimeType}: $e');
+      OrderLog.error('stack: $st');
       return false;
     } finally {
       isPlacingOrder.value = false;
@@ -235,22 +209,8 @@ class OrderController extends GetxController {
         orderId: orderId,
         bankId: selectedBank.value!.id,
       );
-      // ignore: avoid_print
-      print('\x1B[35m┌─── PAYMENT URL ───────────────────────────────\x1B[0m');
-      // ignore: avoid_print
-      print('\x1B[35m│ url    : $url\x1B[0m');
-      // ignore: avoid_print
-      print('\x1B[35m│ bank   : ${selectedBank.value?.nameKey}\x1B[0m');
-      // ignore: avoid_print
-      print('\x1B[35m└───────────────────────────────────────────────\x1B[0m');
       return url;
     } catch (e) {
-      // ignore: avoid_print
-      print('\x1B[31m┌─── PAYMENT URL ERROR ─────────────────────────\x1B[0m');
-      // ignore: avoid_print
-      print('\x1B[31m│ $e\x1B[0m');
-      // ignore: avoid_print
-      print('\x1B[31m└───────────────────────────────────────────────\x1B[0m');
       return null;
     } finally {
       isInitiatingPayment.value = false;

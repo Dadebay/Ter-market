@@ -211,11 +211,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       _totalProductCount.value = result.count;
       _hasMore.value = result.count > result.results.length;
       if (result.availableBrands.isNotEmpty) {
-        print('┌─── AVAILABLE BRANDS FROM PRODUCTS API ────────');
-        for (int i = 0; i < result.availableBrands.length; i++) {
-          print('│ Brand[$i] RAW: ${result.availableBrands[i]}');
-        }
-        print('└───────────────────────────────────────────────');
         _availableBrands = result.availableBrands.map((e) => BrandModel.fromJson(e)).toList();
       }
     } catch (_) {

@@ -76,7 +76,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
       // For iOS, wait for APNS token to be ready (up to 5 seconds)
       if (Platform.isIOS) {
-        print('[APNS] Waiting for APNS token...');
 
         bool apnsReady = false;
         for (int i = 0; i < 5; i++) {
@@ -84,12 +83,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           final apnsToken = await messaging.getAPNSToken();
 
           if (apnsToken != null) {
-            print('[APNS] Token received: $apnsToken');
             apnsReady = true;
             break;
           }
 
-          print('[APNS] Attempt ${i + 1}/5: Token not available yet...');
         }
 
         if (!apnsReady) {
@@ -103,25 +100,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
       await _registerFcmToken(messaging);
     } catch (e) {
-      print('[FCM] Registration failed: $e');
     }
   }
 
   void _scheduleFcmBackgroundRetry(FirebaseMessaging messaging) {
-    print('[FCM] Scheduling background retry in 20 seconds...');
     Future.delayed(const Duration(seconds: 20), () async {
       try {
         if (Platform.isIOS) {
           final apnsToken = await messaging.getAPNSToken();
           if (apnsToken == null) {
-            print('[APNS] Background retry: token still not available');
             return;
           }
-          print('[APNS] Background retry: token received');
         }
         await _registerFcmToken(messaging);
       } catch (e) {
-        print('[FCM] Background retry failed: $e');
       }
     });
   }
@@ -131,17 +123,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     try {
       token = await messaging.getToken();
     } catch (e) {
-      print('[FCM] Error getting token: $e');
       token = null;
     }
 
     if (token == null) {
-      print('[FCM] Token is null, will register when available via listener');
       return; // Listener in main.dart will handle registration
     }
 
-    print('[FCM] Current token: $token');
-    print('[DEVICE ID: ${Get.find<GetStorage>().read<String>('device_id')}]');
 
     final storage = Get.find<GetStorage>();
     final stored = storage.read<String>('fcm_token');
@@ -149,7 +137,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     await ApiService().registerFcmToken(token);
     storage.write('fcm_token', token);
-    print('[FCM] Token registered successfully: $token');
   }
 
   Future<void> _syncDevice() async {
@@ -170,9 +157,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
       await ApiService().registerDevice(deviceId);
       storage.write('device_registered', deviceId);
-      print('[Device] Registered successfully: $deviceId');
     } catch (e) {
-      print('[Device] Registration failed: $e');
     }
   }
 

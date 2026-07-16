@@ -27,44 +27,29 @@ class FirebaseMessagingService {
   Future<void> _handlePushNotificationsToken() async {
     try {
       // FCM Token (Android & iOS)
-      final String? fcmToken = await FirebaseMessaging.instance.getToken();
-      print('========== FCM TOKEN ==========');
-      print(fcmToken);
-      print('================================');
-    } catch (error) {
-      print('Failed to fetch FCM token: $error');
-    }
+      await FirebaseMessaging.instance.getToken();
+    } catch (_) {}
 
     try {
       // APNS Token (iOS only)
-      final String? apnsToken = await FirebaseMessaging.instance.getAPNSToken();
-      print('========== APNS TOKEN ==========');
-      print(apnsToken);
-      print('=================================');
-    } catch (error) {
-      print('Failed to fetch APNS token: $error');
-    }
+      await FirebaseMessaging.instance.getAPNSToken();
+    } catch (_) {}
 
     // await NotificationService().sendDeviceToken();
     FirebaseMessaging.instance.onTokenRefresh.listen((fcmToken) {
-      print('========== FCM TOKEN (refreshed) ==========');
-      print(fcmToken);
-      print('===========================================');
       // NotificationService().sendDeviceToken();
     }).onError((error) {});
   }
 
   Future<void> _requestPermission() async {
-    final result = await FirebaseMessaging.instance.requestPermission(
+    await FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
-    print('User granted permission: ${result.authorizationStatus}');
   }
 
   void _onForegroundMessage(RemoteMessage message) {
-    print('Foreground message received: ${message.data.toString()}');
     final notificationData = message.notification;
     if (notificationData != null) {
       _localNotificationsService?.showNotification(
@@ -76,7 +61,6 @@ class FirebaseMessagingService {
   }
 
   void _onMessageOpenedApp(RemoteMessage message) {
-    print('Notification caused the app to open: ${message.data.toString()}');
   }
 }
 
@@ -85,5 +69,4 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   }
-  print('Background message received: ${message.data.toString()}');
 }

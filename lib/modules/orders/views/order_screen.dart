@@ -319,8 +319,13 @@ class _OrderScreenState extends State<OrderScreen> {
     final count = widget.cartItems.fold<int>(0, (s, item) => s + ((item['quantity'] ?? 1) as int));
     String? deliveryDate;
     if (!_isExpressDelivery) {
-      final base = _isDeliveryTomorrow ? DateTime.now().add(const Duration(days: 1)) : DateTime.now();
-      deliveryDate = '${base.year.toString().padLeft(4, '0')}-${base.month.toString().padLeft(2, '0')}-${base.day.toString().padLeft(2, '0')}';
+      final now = DateTime.now();
+      final base = _isDeliveryTomorrow ? now.add(const Duration(days: 1)) : now;
+      String twoDigits(int n) => n.toString().padLeft(2, '0');
+      // Keep the chosen delivery day but carry the actual placement time
+      // (Turkmenistan is a fixed UTC+5, no DST) instead of always midnight.
+      deliveryDate = '${base.year.toString().padLeft(4, '0')}-${twoDigits(base.month)}-${twoDigits(base.day)}'
+          'T${twoDigits(now.hour)}:${twoDigits(now.minute)}:${twoDigits(now.second)}+05:00';
     }
     OrderLog.step('_submit() → sending order (online=$_isOnlinePayment)');
     final success = await _orderCtrl.placeOrder(

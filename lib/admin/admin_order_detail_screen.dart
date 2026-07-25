@@ -62,11 +62,15 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
     }
   }
 
+  /// Returns the formatted date+time, or null if `iso` is missing/unparseable
+  /// or is a date-only midnight value (not a real order time) from the API.
   String? _formatDate(String? iso) {
     if (iso == null || iso.isEmpty) return null;
     try {
       final dt = DateTime.parse(iso).toLocal();
-      return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+      if (dt.hour == 0 && dt.minute == 0) return null;
+      final date = '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+      return '$date ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     } catch (_) {
       return null;
     }

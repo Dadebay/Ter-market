@@ -132,7 +132,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
 
       return Container(
         height: 220,
-        margin: EdgeInsets.only(bottom: 10, top: 10),
+        margin: const EdgeInsets.only(bottom: 10, top: 10),
         child: PageView.builder(
           controller: _pageController,
           itemCount: _multiplier * banners.length,

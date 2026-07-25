@@ -36,7 +36,7 @@ class GlobalSafeAreaWrapper extends StatelessWidget {
   }
 
   SystemUiOverlayStyle _getSystemUiOverlayStyle(BuildContext context) {
-    return SystemUiOverlayStyle(
+    return const SystemUiOverlayStyle(
       statusBarColor: AppColors.primary,
       statusBarIconBrightness: Brightness.dark,
       statusBarBrightness: Brightness.light,

@@ -22,6 +22,7 @@ import 'package:iconly/iconly.dart';
 
 class HomeScreen extends GetView<HomeController> {
   HomeScreen({super.key});
+  @override
   final HomeController controller = Get.put<HomeController>(HomeController());
 
   void _onCartPressed(ProductModel product) {
@@ -144,7 +145,7 @@ class HomeScreen extends GetView<HomeController> {
             ),
           ),
           GestureDetector(
-            onTap: () => Nav.push(context, () => ContactPage()),
+            onTap: () => Nav.push(context, () => const ContactPage()),
             child: const Icon(FeatherIcons.phoneCall, color: Colors.black87, size: 20),
           ),
           const SizedBox(width: 4),
@@ -234,7 +235,7 @@ class HomeScreen extends GetView<HomeController> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (category.image != null)
-                  Container(
+                  SizedBox(
                     width: 75,
                     height: 65,
                     child: ClipRRect(

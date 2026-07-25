@@ -73,7 +73,7 @@ class CartScreen extends GetView<CartController> {
           const SizedBox(height: 24),
           Text(
             'empty_cart'.tr,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
               fontFamily: 'Gilroy',
@@ -82,7 +82,7 @@ class CartScreen extends GetView<CartController> {
           const SizedBox(height: 8),
           Text(
             'add_products'.tr,
-            style: TextStyle(color: Colors.grey, fontSize: 16),
+            style: const TextStyle(color: Colors.grey, fontSize: 16),
             textAlign: TextAlign.center,
           ),
         ],

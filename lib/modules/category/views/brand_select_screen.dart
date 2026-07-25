@@ -210,10 +210,10 @@ class _BrandSelectScreenState extends State<BrandSelectScreen> {
   }
 
   Widget _buildEmpty() {
-    return Center(
+    return const Center(
       child: Text(
         'Brend tapylmady',
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.grey,
           fontFamily: 'Gilroy',
           fontSize: 14,

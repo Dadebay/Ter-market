@@ -268,8 +268,13 @@ class _OrderScreenState extends State<OrderScreen> {
     final count = widget.cartItems.fold<int>(0, (s, item) => s + ((item['quantity'] ?? 1) as int));
     String? deliveryDate;
     if (!_isExpressDelivery) {
-      final base = _isDeliveryTomorrow ? DateTime.now().add(const Duration(days: 1)) : DateTime.now();
-      deliveryDate = '${base.year.toString().padLeft(4, '0')}-${base.month.toString().padLeft(2, '0')}-${base.day.toString().padLeft(2, '0')}';
+      final now = DateTime.now();
+      final base = _isDeliveryTomorrow ? now.add(const Duration(days: 1)) : now;
+      String twoDigits(int n) => n.toString().padLeft(2, '0');
+      // Keep the chosen delivery day but carry the actual placement time
+      // (Turkmenistan is a fixed UTC+5, no DST) instead of always midnight.
+      deliveryDate = '${base.year.toString().padLeft(4, '0')}-${twoDigits(base.month)}-${twoDigits(base.day)}'
+          'T${twoDigits(now.hour)}:${twoDigits(now.minute)}:${twoDigits(now.second)}+05:00';
     }
     final success = await _orderCtrl.placeOrder(
       phoneNumber: _phoneCtrl.text.trim(),
@@ -320,7 +325,7 @@ class _OrderScreenState extends State<OrderScreen> {
             elevation: 0,
             scrolledUnderElevation: 0,
             leading: IconButton(
-              icon: HugeIcon(
+              icon: const HugeIcon(
                 icon: HugeIcons.strokeRoundedArrowLeft01,
                 color: AppColors.primary,
               ),
@@ -1445,7 +1450,7 @@ class _RegionListTile extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onTap;
 
-  const _RegionListTile({
+  _RegionListTile({
     required this.region,
     required this.isSelected,
     this.onTap,
@@ -2015,9 +2020,7 @@ class _BankSelectDialogState extends State<_BankSelectDialog> {
                             width: 2,
                           ),
                         ),
-                        child: isSelected
-                            ? const Icon(Icons.circle, color: Colors.white, size: 10)
-                            : null,
+                        child: isSelected ? const Icon(Icons.circle, color: Colors.white, size: 10) : null,
                       ),
                     ],
                   ),

@@ -77,10 +77,10 @@ class _MainScreenState extends State<MainScreen> {
       backgroundColor: Colors.white,
       screens: [
         CustomNavBarScreen(screen: HomeScreen()),
-        CustomNavBarScreen(screen: CategoryScreen()),
-        CustomNavBarScreen(screen: CartScreen()),
-        CustomNavBarScreen(screen: FavoritesScreen(fromBottomNavBar: true)),
-        CustomNavBarScreen(screen: ProfileScreen()),
+        const CustomNavBarScreen(screen: CategoryScreen()),
+        const CustomNavBarScreen(screen: CartScreen()),
+        const CustomNavBarScreen(screen: FavoritesScreen(fromBottomNavBar: true)),
+        const CustomNavBarScreen(screen: ProfileScreen()),
       ],
       customWidget: _MainNavBar(
         selectedIndex: _tabController.index,

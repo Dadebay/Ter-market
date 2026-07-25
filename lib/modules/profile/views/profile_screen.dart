@@ -75,7 +75,7 @@ class _LoggedInBody extends StatelessWidget {
           _buildMenuItem(
             HugeIcons.strokeRoundedFavourite,
             'favorites'.tr,
-            () => Nav.push(context, () => FavoritesScreen(fromBottomNavBar: false)),
+            () => Nav.push(context, () => const FavoritesScreen(fromBottomNavBar: false)),
           ),
           const SizedBox(height: 12),
           _buildMenuItem(

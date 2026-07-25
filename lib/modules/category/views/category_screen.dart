@@ -140,7 +140,7 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
         titleSpacing: _isSearching ? 4 : 16,
         leading: isCategoryTab && _isSearching
             ? IconButton(
-                icon: Icon(Icons.arrow_back, color: Colors.black),
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
                 onPressed: _stopSearch,
               )
             : null,
@@ -212,7 +212,7 @@ class _CategoryScreenState extends State<CategoryScreen> with SingleTickerProvid
           else if (isCategoryTab && !_isSearching)
             IconButton(
               onPressed: _startSearch,
-              icon: Icon(IconlyLight.search, color: Colors.black87, size: 24),
+              icon: const Icon(IconlyLight.search, color: Colors.black87, size: 24),
             ),
         ],
       ),

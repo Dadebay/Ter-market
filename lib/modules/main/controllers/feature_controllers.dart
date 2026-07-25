@@ -145,6 +145,7 @@ class FavoritesController extends GetxController {
   }
 
   /// Refresh favorites from the backend
+  @override
   Future<void> refresh() async {
     await fetchFavourites();
   }

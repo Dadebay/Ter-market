@@ -1,3 +1,37 @@
+import 'package:url_launcher/url_launcher.dart';
+
+/// Strips the seconds component from HH:MM:SS times in a raw delivery time
+/// range (e.g. "18:00:00 -20:00:00" -> "18:00 -20:00"). Translates the
+/// server's "No delivery time" placeholder (sent for express orders).
+String deliveryTimeLabel(String? raw) {
+  if (raw == null) return '';
+  if (raw.trim().toLowerCase() == 'no delivery time') return 'Çalt eltip berme';
+  return raw.replaceAllMapped(RegExp(r'(\d{1,2}:\d{2}):\d{2}'), (m) => m.group(1)!);
+}
+
+/// Opens the phone dialer with the given number pre-filled.
+Future<void> callPhoneNumber(String? phone) async {
+  if (phone == null || phone.isEmpty) return;
+  final uri = Uri(scheme: 'tel', path: phone);
+  await launchUrl(uri);
+}
+
+/// Turkmen label for a raw delivery type value coming from the server
+/// (e.g. "express"). Unrecognized values are shown as-is.
+String deliveryTypeLabel(String? raw) {
+  if (raw == null) return '';
+  switch (raw.trim().toLowerCase()) {
+    case 'express':
+      return 'Çalt eltip berme';
+    case 'adaty':
+    case 'standard':
+    case 'regular':
+      return 'Adaty';
+    default:
+      return raw;
+  }
+}
+
 class AdminOrderModel {
   final int id;
   final String? orderNumber;

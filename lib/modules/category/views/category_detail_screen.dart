@@ -632,7 +632,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                  const Text(
                     'Jemi:',
                     style: TextStyle(
                       fontSize: 11,
@@ -643,7 +643,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                   ),
                   Text(
                     '${_totalProductCount.value} sany haryt',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
                       color: Colors.black87,
                       fontFamily: 'Gilroy',

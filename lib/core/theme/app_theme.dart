@@ -8,7 +8,7 @@ class AppTheme {
       scaffoldBackgroundColor: Colors.white,
       primaryColor: AppColors.green,
       fontFamily: 'Gilroy',
-      colorScheme: ColorScheme.light(
+      colorScheme: const ColorScheme.light(
         primary: AppColors.green,
         secondary: AppColors.green,
         surface: Colors.white,

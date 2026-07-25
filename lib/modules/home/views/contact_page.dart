@@ -81,7 +81,7 @@ class ContactPage extends StatelessWidget {
                             if (contact.phone1 != null && contact.phone1!.isNotEmpty)
                               _buildContactCard(
                                 icon: FeatherIcons.phone,
-                                label: 'phone'.tr + ' 1',
+                                label: '${'phone'.tr} 1',
                                 value: contact.phone1!,
                                 color: const Color(0xFF4B2AA4),
                                 type: 'tel',
@@ -89,7 +89,7 @@ class ContactPage extends StatelessWidget {
                             if (contact.phone2 != null && contact.phone2!.isNotEmpty)
                               _buildContactCard(
                                 icon: FeatherIcons.phone,
-                                label: 'phone'.tr + ' 2',
+                                label: '${'phone'.tr} 2',
                                 value: contact.phone2!,
                                 color: const Color(0xFF4B2AA4),
                                 type: 'tel',
@@ -97,7 +97,7 @@ class ContactPage extends StatelessWidget {
                             if (contact.phone3 != null && contact.phone3!.isNotEmpty)
                               _buildContactCard(
                                 icon: FeatherIcons.phone,
-                                label: 'phone'.tr + ' 3',
+                                label: '${'phone'.tr} 3',
                                 value: contact.phone3!,
                                 color: const Color(0xFF4B2AA4),
                                 type: 'tel',

@@ -402,7 +402,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 },
                 backgroundDecoration: const BoxDecoration(color: Colors.white),
               ),
-              Positioned.fill(
+              const Positioned.fill(
                 child: IgnorePointer(
                   child: _WatermarkPattern(),
                 ),
@@ -584,7 +584,7 @@ class _WatermarkPattern extends StatelessWidget {
           children: List.generate(rows, (row) {
             final stagger = (row % 2 == 0) ? 0.0 : colGap / 2;
             return Padding(
-              padding: EdgeInsets.only(bottom: rowGap - logoH),
+              padding: const EdgeInsets.only(bottom: rowGap - logoH),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

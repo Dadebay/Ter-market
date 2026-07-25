@@ -103,7 +103,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         hintText: 'search_hint'.tr,
                         hintStyle: const TextStyle(color: Colors.grey),
                         contentPadding: const EdgeInsets.only(left: 14, top: 18, bottom: 6, right: 8),
-                        prefixIcon: Icon(
+                        prefixIcon: const Icon(
                           IconlyLight.search,
                           color: Colors.grey,
                           size: 20,
@@ -113,7 +113,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               ? const SizedBox.shrink()
                               : IconButton(
                                   onPressed: _clearSearch,
-                                  icon: Icon(
+                                  icon: const Icon(
                                     IconlyLight.search,
                                     color: Colors.grey,
                                     size: 18,

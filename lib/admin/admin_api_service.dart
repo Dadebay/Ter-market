@@ -111,23 +111,49 @@ class AdminApiService {
     }
   }
 
-  // GET /v2/orderitems/?order_id=<id>
+  // GET /v2/orderitems/?order_id=<id> — this endpoint uses limit/offset
+  // pagination (not `page`), so subsequent pages must be fetched via the
+  // exact `next` URL the API returns rather than an incrementing page number.
   Future<List<Map<String, dynamic>>> getOrderItems(int orderId) async {
     try {
-      final response = await _dio.get(
+      final items = <Map<String, dynamic>>[];
+      var pageCount = 0;
+      const maxPages = 15; // safety net in case the order_id filter ever breaks
+
+      print('\x1B[36m[AdminApi] 📤 GET v2/orderitems/?order_id=$orderId\x1B[0m');
+
+      var response = await _dio.get(
         'v2/orderitems/',
         queryParameters: {'order_id': orderId},
       );
-      final data = response.data;
-      if (data is List) {
-        return List<Map<String, dynamic>>.from(data);
+
+      while (true) {
+        pageCount++;
+        print('\x1B[36m[AdminApi] 🔗 requested: ${response.requestOptions.uri}\x1B[0m');
+        final data = response.data;
+
+        List<dynamic> pageResults;
+        String? next;
+        if (data is List) {
+          pageResults = data;
+          next = null;
+        } else if (data is Map && data.containsKey('results')) {
+          pageResults = data['results'] as List;
+          next = data['next'] as String?;
+        } else {
+          break;
+        }
+
+        items.addAll(List<Map<String, dynamic>>.from(pageResults));
+        print('\x1B[32m[AdminApi] ✅ orderitems page=$pageCount | +${pageResults.length} | total=${items.length} | next=$next\x1B[0m');
+
+        if (next == null || pageCount >= maxPages) break;
+        response = await _dio.get(next); // absolute URL — dio uses it as-is instead of joining with baseUrl
       }
-      if (data is Map && data.containsKey('results')) {
-        return List<Map<String, dynamic>>.from(data['results'] as List);
-      }
-      return [];
+
+      return items;
     } catch (e) {
-      print('[AdminApi] getOrderItems error: $e');
+      print('[AdminApi] getOrderItems error: orderId=$orderId | $e');
       rethrow;
     }
   }
@@ -147,6 +173,9 @@ class AdminApiService {
         if (data.containsKey('results')) {
           final results = List<Map<String, dynamic>>.from(data['results'] as List);
           print('\x1B[32m[AdminApi] ✅ results count: ${results.length}\x1B[0m');
+          if (results.isNotEmpty) {
+            print('\x1B[35m[AdminApi] 🕒 first order raw json: ${results.first}\x1B[0m');
+          }
           return results;
         }
       }
@@ -177,6 +206,7 @@ class _AdminAuthInterceptor extends Interceptor {
       final token = AdminApiService.accessToken;
       if (token != null && token.isNotEmpty) {
         options.headers['Authorization'] = 'Bearer $token';
+        print('\x1B[34m[AdminApi] 🔑 Bearer $token\x1B[0m');
       }
     }
     handler.next(options);

@@ -1720,15 +1720,14 @@ class _DeliveryDateTimePicker extends StatelessWidget {
           // Compute available slots for today to know if tab is usable
           Builder(builder: (ctx) {
             final availableToday = times.where((t) {
-              final parts = t.time2.split(':');
+              // A slot closes the moment its start time passes, not its end
+              // time — e.g. "18:00-20:00" disappears right after 18:00.
+              final parts = t.time1.split(':');
               if (parts.length < 2) return true;
-              final slotEnd = TimeOfDay(
-                hour: int.tryParse(parts[0]) ?? 0,
-                minute: int.tryParse(parts[1]) ?? 0,
-              );
+              final startMinutes = (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
               final now = TimeOfDay.now();
-              return slotEnd.hour > now.hour ||
-                  (slotEnd.hour == now.hour && slotEnd.minute > now.minute);
+              final nowMinutes = now.hour * 60 + now.minute;
+              return nowMinutes <= startMinutes;
             }).toList();
             final todayEnabled = availableToday.isNotEmpty;
 

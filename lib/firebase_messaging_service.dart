@@ -60,8 +60,7 @@ class FirebaseMessagingService {
     }
   }
 
-  void _onMessageOpenedApp(RemoteMessage message) {
-  }
+  void _onMessageOpenedApp(RemoteMessage message) {}
 }
 
 @pragma('vm:entry-point')

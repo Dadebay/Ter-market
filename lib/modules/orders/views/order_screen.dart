@@ -1143,6 +1143,7 @@ class _PaymentTile extends StatelessWidget {
     required this.method,
     required this.lang,
     required this.isSelected,
+    // ignore: unused_element_parameter
     this.onTap,
   });
 
@@ -1601,6 +1602,7 @@ class _RegionListTile extends StatelessWidget {
   const _RegionListTile({
     required this.region,
     required this.isSelected,
+    // ignore: unused_element_parameter
     this.onTap,
   });
 

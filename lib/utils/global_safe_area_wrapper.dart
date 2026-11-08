@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:atlas/themes/colors.dart';
 import 'package:flutter/material.dart';

@@ -8,7 +8,26 @@ plugins {
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('upload/key.properties')
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    keystorePropertiesFile.withInputStream { stream ->
+        keystoreProperties.load(stream)
+    }
+}
+def requiredReleaseKeys = ['storeFile', 'storePassword', 'keyAlias', 'keyPassword']
+def missingReleaseKeys = requiredReleaseKeys.findAll { !keystoreProperties.getProperty(it) }
+def hasReleaseSigning = keystorePropertiesFile.exists() && missingReleaseKeys.isEmpty()
+def releaseTaskRequested = gradle.startParameter.taskNames.any {
+    it.toLowerCase().contains('release')
+}
+if (releaseTaskRequested) {
+    if (!keystorePropertiesFile.exists()) {
+        throw new GradleException('Android release signing requires android/upload/key.properties. See android/upload/key.properties.example.')
+    }
+    if (!missingReleaseKeys.isEmpty()) {
+        throw new GradleException("Missing Android release signing values: ${missingReleaseKeys.join(', ')}")
+    }
+    if (!rootProject.file(keystoreProperties.getProperty('storeFile')).exists()) {
+        throw new GradleException('Android release keystore file does not exist.')
+    }
 }
 
 android {
@@ -42,9 +61,21 @@ android {
         multiDexEnabled true
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile rootProject.file(keystoreProperties.getProperty('storeFile'))
+                storePassword keystoreProperties.getProperty('storePassword')
+                keyAlias keystoreProperties.getProperty('keyAlias')
+                keyPassword keystoreProperties.getProperty('keyPassword')
+            }
+        }
+    }
     buildTypes {
         release {
-            signingConfig = signingConfigs.debug
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

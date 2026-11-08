@@ -1,5 +1,5 @@
 name: atlas
-description: "A new Flutter project."
+description: "Ter Market grocery and everyday essentials shopping app."
 
 publish_to: 'none'
 
@@ -50,8 +50,10 @@ dependencies:
 
   #==================== DOWNLOAD ====================#
   dio: ^5.4.0
-  feather_icons: ^1.2.0
-  iconly: ^1.0.1
+  feather_icons:
+    path: third_party/feather_icons
+  iconly:
+    path: third_party/iconly
   share_plus: ^10.0.0
 
 dev_dependencies:

@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'package:atlas/modules/home/views/banner_detail_screen.dart';
 import 'package:atlas/modules/category/views/category_detail_screen.dart';
-import 'package:atlas/themes/colors.dart';
 import 'package:atlas/utils/nav.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -24,7 +22,6 @@ class _BannerCarouselState extends State<BannerCarousel> {
   // Büyük bir sayıdan başlayarak sonsuz izlenimi veriyoruz
   static const int _multiplier = 1000;
   late PageController _pageController;
-  int _realIndex = 0;
   Timer? _timer;
   int _bannerCount = 0;
 
@@ -137,9 +134,6 @@ class _BannerCarouselState extends State<BannerCarousel> {
         child: PageView.builder(
           controller: _pageController,
           itemCount: _multiplier * banners.length,
-          onPageChanged: (page) {
-            setState(() => _realIndex = page % banners.length);
-          },
           itemBuilder: (context, index) {
             final banner = banners[index % banners.length];
             return GestureDetector(
